@@ -25,6 +25,9 @@ public:
 
 	void SetColors(COLORREF bg, COLORREF text, COLORREF headerText);
 
+	// apply the same user font as the main list (DPI scaled)
+	void UpdateFont();
+
 protected:
 	struct FormatInfo
 	{
@@ -45,6 +48,7 @@ protected:
 	void UpdateContent();
 	void LayoutChildren();
 	void ClearImage();
+	CString GetFriendlyTypeName() const;
 	CString FormatByteSize(__int64 nSize) const;
 
 	CDPI* m_pDpi;
@@ -71,6 +75,7 @@ protected:
 	// standard controls doing all the rendering
 	CRichEditCtrlEx m_edit;
 	CStatic m_imgStatic;
+	CFont m_Font;
 
 	DECLARE_MESSAGE_MAP()
 };

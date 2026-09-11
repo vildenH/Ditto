@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "PreviewPane.h"
 #include "CP_Main.h"
 #include "Misc.h"
@@ -63,7 +63,7 @@ BOOL CPreviewPane::Create(CWnd* pParentWnd)
 	{
 		return FALSE;
 	}
-	m_edit.SendMessage(WM_SETFONT, (WPARAM)::GetStockObject(DEFAULT_GUI_FONT), TRUE);
+	UpdateFont();
 
 	// standard static showing the image thumbnail when the clip is an image
 	if (m_imgStatic.Create(_T(""), WS_CHILD | SS_BITMAP, CRect(0, 0, 0, 0), this, ID_PREVIEW_IMAGE) == FALSE)
@@ -347,6 +347,74 @@ CString CPreviewPane::FormatByteSize(__int64 nSize) const
 	return CString(szSize);
 }
 
+CString CPreviewPane::GetFriendlyTypeName() const
+{
+	bool bText = false, bImage = false, bFiles = false, bRtf = false, bHtml = false;
+	for (size_t i = 0; i < m_formats.size(); i++)
+	{
+		const CString& name = m_formats[i].m_csName;
+		if (name.CompareNoCase(_T("CF_UNICODETEXT")) == 0 ||
+			name.CompareNoCase(_T("CF_TEXT")) == 0)
+		{
+			bText = true;
+		}
+		else if (name.CompareNoCase(_T("CF_DIB")) == 0 ||
+			name.CompareNoCase(_T("CF_DIBV5")) == 0 ||
+			name.CompareNoCase(_T("PNG")) == 0 ||
+			name.CompareNoCase(_T("CF_BITMAP")) == 0)
+		{
+			bImage = true;
+		}
+		else if (name.CompareNoCase(_T("CF_HDROP")) == 0)
+		{
+			bFiles = true;
+		}
+		else if (name.CompareNoCase(_T("RTF")) == 0)
+		{
+			bRtf = true;
+		}
+		else if (name.CompareNoCase(_T("HTML Format")) == 0)
+		{
+			bHtml = true;
+		}
+	}
+
+	if (bFiles)
+	{
+		return theApp.m_Language.GetString("PreviewTypeFiles", "Files");
+	}
+	if (bImage)
+	{
+		return theApp.m_Language.GetString("PreviewTypeImage", "Image");
+	}
+	if (bRtf && !bText)
+	{
+		return theApp.m_Language.GetString("PreviewTypeRichText", "Rich text");
+	}
+	if (bHtml && !bText)
+	{
+		return theApp.m_Language.GetString("PreviewTypeWebPage", "Web page");
+	}
+	return theApp.m_Language.GetString("PreviewTypeText", "Text");
+}
+
+void CPreviewPane::UpdateFont()
+{
+	if (::IsWindow(m_edit.GetSafeHwnd()) == FALSE)
+	{
+		return;
+	}
+
+	// use the same user-configurable font as the main list, DPI scaled
+	LOGFONT lf;
+	CGetSetOptions::GetFont(lf);
+	lf.lfHeight = m_pDpi ? m_pDpi->Scale(lf.lfHeight) : lf.lfHeight;
+
+	m_Font.DeleteObject();
+	m_Font.CreateFontIndirect(&lf);
+	m_edit.SetFont(&m_Font);
+}
+
 void CPreviewPane::UpdateContent()
 {
 	if (::IsWindow(m_edit.GetSafeHwnd()) == FALSE)
@@ -354,42 +422,31 @@ void CPreviewPane::UpdateContent()
 		return;
 	}
 
-	CString cs;
-
 	if (m_clipId <= 0)
 	{
-		cs = _T("No item selected");
-		m_edit.SetWindowText(cs);
+		m_edit.SetWindowText(theApp.m_Language.GetString("PreviewNoItemSelected", "No item selected"));
 		return;
 	}
 
-	if (m_bHasMetadata)
+	// Alfred-style: one small gray summary line, then the actual content
+	CString csType = GetFriendlyTypeName();
+	CString csMeta;
+	if (csType == theApp.m_Language.GetString("PreviewTypeFiles", "Files"))
 	{
-		CString csHeader;
-		csHeader.Format(_T("Clip %d - %s"), m_clipId, FormatByteSize(m_nTotalSize));
-		cs += csHeader;
-		cs += _T("\r\n\r\n");
-
-		if (m_formats.size() > 0)
-		{
-			cs += _T("Formats:\r\n");
-			for (size_t i = 0; i < m_formats.size(); i++)
-			{
-				CString csLine;
-				csLine.Format(_T("%s (%s)"), m_formats[i].m_csName, FormatByteSize(m_formats[i].m_nSize));
-				cs += csLine;
-				if (i + 1 < m_formats.size())
-				{
-					cs += _T("\r\n");
-				}
-			}
-			cs += _T("\r\n\r\n");
-		}
+		CString csFmt = theApp.m_Language.GetString("PreviewFilesSummary", "%d files · %s");
+		csMeta.Format(csFmt, m_fileNames.GetCount(), FormatByteSize(m_nTotalSize));
 	}
+	else
+	{
+		csMeta.Format(_T("%s · %s"), csType, FormatByteSize(m_nTotalSize));
+	}
+
+	CString cs = csMeta;
+	cs += _T("\r\n");
 
 	if (m_fileNames.GetCount() > 0)
 	{
-		cs += _T("Files:\r\n");
+		cs += _T("\r\n");
 		for (int i = 0; i < m_fileNames.GetCount(); i++)
 		{
 			cs += m_fileNames[i];
@@ -397,15 +454,13 @@ void CPreviewPane::UpdateContent()
 		}
 		if (m_bFileListTruncated)
 		{
-			cs += _T("...");
-			cs += _T("\r\n");
+			cs += _T("...\r\n");
 		}
-		cs += _T("\r\n");
 	}
 
 	if (m_csTextPreview.IsEmpty() == FALSE)
 	{
-		cs += _T("Content:\r\n");
+		cs += _T("\r\n");
 		cs += m_csTextPreview;
 		if (m_bTruncatedText)
 		{
@@ -414,6 +469,22 @@ void CPreviewPane::UpdateContent()
 	}
 
 	m_edit.SetWindowText(cs);
+
+	// render the summary line small and gray, the content normal
+	CHARRANGE cr;
+	cr.cpMin = 0;
+	cr.cpMax = csMeta.GetLength();
+	m_edit.SetSel(cr);
+
+	CHARFORMAT cf;
+	memset(&cf, 0, sizeof(cf));
+	cf.cbSize = sizeof(cf);
+	cf.dwMask = CFM_COLOR;
+	cf.dwEffects = 0;
+	cf.crTextColor = m_crHeaderText;
+	m_edit.SetSelectionCharFormat(cf);
+
+	m_edit.SetSel(-1, -1);
 }
 
 void CPreviewPane::LayoutChildren()
