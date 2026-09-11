@@ -413,6 +413,17 @@ void CPreviewPane::UpdateFont()
 	m_Font.DeleteObject();
 	m_Font.CreateFontIndirect(&lf);
 	m_edit.SetFont(&m_Font);
+
+	// changing the font resets rich edit formatting, re-apply the theme text color
+	CHARFORMAT cf;
+	memset(&cf, 0, sizeof(cf));
+	cf.cbSize = sizeof(cf);
+	cf.dwMask = CFM_COLOR;
+	cf.dwEffects = 0;
+	cf.crTextColor = m_crText;
+	m_edit.SetDefaultCharFormat(cf);
+
+	UpdateContent();
 }
 
 void CPreviewPane::UpdateContent()
@@ -484,7 +495,9 @@ void CPreviewPane::UpdateContent()
 	cf.crTextColor = m_crHeaderText;
 	m_edit.SetSelectionCharFormat(cf);
 
-	m_edit.SetSel(-1, -1);
+	// deselect and scroll back to the top so the summary line is visible
+	m_edit.SetSel(0, 0);
+	m_edit.LineScroll(-m_edit.GetLineCount());
 }
 
 void CPreviewPane::LayoutChildren()
