@@ -290,7 +290,11 @@ BEGIN_MESSAGE_MAP(CQPasteWnd, CWndEx)
 	ON_NOTIFY(NM_CLICK, ID_LIST_HEADER, &CQPasteWnd::OnNMClickList1)
 	ON_MESSAGE(NM_PREVIEW_SEL_CHANGED, &CQPasteWnd::OnPreviewSelChanged)
 	ON_COMMAND(ID_MENU_PREVIEWPANE, &CQPasteWnd::OnMenuPreviewPane)
-ON_UPDATE_COMMAND_UI(ID_MENU_PREVIEWPANE, &CQPasteWnd::OnUpdateMenuPreviewPane)
+	ON_UPDATE_COMMAND_UI(ID_MENU_PREVIEWPANE, &CQPasteWnd::OnUpdateMenuPreviewPane)
+	ON_COMMAND(ID_MENU_PREVIEW_GOLDEN, &CQPasteWnd::OnMenuPreviewGolden)
+	ON_UPDATE_COMMAND_UI(ID_MENU_PREVIEW_GOLDEN, &CQPasteWnd::OnUpdateMenuPreviewGolden)
+	ON_COMMAND(ID_MENU_PREVIEW_HALF, &CQPasteWnd::OnMenuPreviewHalf)
+	ON_UPDATE_COMMAND_UI(ID_MENU_PREVIEW_HALF, &CQPasteWnd::OnUpdateMenuPreviewHalf)
 	ON_NOTIFY(NM_DBLCLK, ID_LIST_HEADER, &CQPasteWnd::OnNMDblclkList1)
 	ON_NOTIFY(NM_RCLICK, ID_LIST_HEADER, &CQPasteWnd::OnNMRClickList1)
 	ON_NOTIFY(NM_RDBLCLK, ID_LIST_HEADER, &CQPasteWnd::OnNMRDblclkList1)
@@ -724,7 +728,9 @@ void CQPasteWnd::MoveControls()
 	int paneWidth = 0;
 	if (m_bShowPreviewPane && cx > m_DittoWindow.m_dpi.Scale(480))
 	{
-		paneWidth = m_DittoWindow.m_dpi.Scale(260);
+		// 0 = golden ratio (list 61.8% / pane 38.2%), 1 = half (50%/50%)
+		double dPaneRatio = CGetSetOptions::GetPreviewPaneRatio() == 1 ? 0.5 : 0.382;
+		paneWidth = (int)(cx * dPaneRatio);
 	}
 	int listWidth = max(1, cx - paneWidth);
 
@@ -1476,6 +1482,34 @@ void CQPasteWnd::OnMenuPreviewPane()
 void CQPasteWnd::OnUpdateMenuPreviewPane(CCmdUI* pCmdUI)
 {
 	pCmdUI->SetCheck(m_bShowPreviewPane ? 1 : 0);
+}
+
+void CQPasteWnd::OnMenuPreviewGolden()
+{
+	CGetSetOptions::SetPreviewPaneRatio(0);
+	if (m_bShowPreviewPane)
+	{
+		MoveControls();
+	}
+}
+
+void CQPasteWnd::OnUpdateMenuPreviewGolden(CCmdUI* pCmdUI)
+{
+	pCmdUI->SetCheck(CGetSetOptions::GetPreviewPaneRatio() == 0 ? 1 : 0);
+}
+
+void CQPasteWnd::OnMenuPreviewHalf()
+{
+	CGetSetOptions::SetPreviewPaneRatio(1);
+	if (m_bShowPreviewPane)
+	{
+		MoveControls();
+	}
+}
+
+void CQPasteWnd::OnUpdateMenuPreviewHalf(CCmdUI* pCmdUI)
+{
+	pCmdUI->SetCheck(CGetSetOptions::GetPreviewPaneRatio() == 1 ? 1 : 0);
 }
 
 void CQPasteWnd::RefreshNc()

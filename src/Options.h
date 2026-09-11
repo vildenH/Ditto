@@ -90,6 +90,10 @@ public:
 	static BOOL GetShowPreviewPane();
 	static void SetShowPreviewPane(BOOL bShow);
 
+	// 0 = golden ratio (38.2%), 1 = half (50%)
+	static int GetPreviewPaneRatio();
+	static void SetPreviewPaneRatio(int nRatio);
+
 	static BOOL GetShowIconInSysTray();
 	static BOOL SetShowIconInSysTray(BOOL bShow);
 

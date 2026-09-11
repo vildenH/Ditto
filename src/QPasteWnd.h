@@ -475,6 +475,10 @@ protected:
 	afx_msg void OnMenuPreviewPane();
 	afx_msg void OnUpdateMenuPreviewPane(CCmdUI* pCmdUI);
 	afx_msg LRESULT OnPreviewSelChanged(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnMenuPreviewGolden();
+	afx_msg void OnUpdateMenuPreviewGolden(CCmdUI* pCmdUI);
+	afx_msg void OnMenuPreviewHalf();
+	afx_msg void OnUpdateMenuPreviewHalf(CCmdUI* pCmdUI);
 
     afx_msg void OnMenuEdititem();
     afx_msg void OnMenuNewclip();
