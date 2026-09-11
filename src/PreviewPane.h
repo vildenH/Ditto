@@ -75,6 +75,11 @@ protected:
 	COLORREF m_crText;
 	COLORREF m_crHeaderText;
 
+	// last child rects, to skip redundant MoveWindow calls (avoids flicker)
+	CRect m_rcLastEdit;
+	CRect m_rcLastImage;
+	bool m_bLastShowImage;
+
 	// standard controls doing all the rendering
 	CRichEditCtrlEx m_edit;
 	CStatic m_imgStatic;

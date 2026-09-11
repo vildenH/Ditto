@@ -33,7 +33,8 @@ CPreviewPane::CPreviewPane() :
 	m_bFileListTruncated(false),
 	m_crBg(RGB(255, 255, 255)),
 	m_crText(RGB(0, 0, 0)),
-	m_crHeaderText(RGB(64, 64, 64))
+	m_crHeaderText(RGB(64, 64, 64)),
+	m_bLastShowImage(false)
 {
 }
 
@@ -491,6 +492,11 @@ void CPreviewPane::UpdateContent()
 		}
 	}
 
+	// suspend painting while doing the multi-step text update, otherwise each
+	// step (set text, select, color, scroll) causes its own synchronous repaint
+	// and the pane visibly flickers on every selection change
+	m_edit.SetRedraw(FALSE);
+
 	m_edit.SetWindowText(cs);
 
 	// render the summary line small and gray, the content normal
@@ -510,6 +516,9 @@ void CPreviewPane::UpdateContent()
 	// deselect and scroll back to the top so the summary line is visible
 	m_edit.SetSel(0, 0);
 	m_edit.LineScroll(-m_edit.GetLineCount());
+
+	m_edit.SetRedraw(TRUE);
+	m_edit.RedrawWindow(NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE);
 }
 
 void CPreviewPane::LayoutChildren()
@@ -555,17 +564,32 @@ void CPreviewPane::LayoutChildren()
 
 	if (m_hPreviewBmp != NULL && rcImage.Height() > 0)
 	{
-		m_imgStatic.SetBitmap(m_hPreviewBmp);
-		m_imgStatic.MoveWindow(rcImage);
-		m_imgStatic.ShowWindow(SW_SHOW);
+		if (m_imgStatic.GetBitmap() != m_hPreviewBmp)
+		{
+			m_imgStatic.SetBitmap(m_hPreviewBmp);
+		}
+		if (rcImage != m_rcLastImage || m_bLastShowImage == false)
+		{
+			m_imgStatic.MoveWindow(rcImage);
+			m_imgStatic.ShowWindow(SW_SHOW);
+		}
+		m_bLastShowImage = true;
 	}
 	else
 	{
-		m_imgStatic.ShowWindow(SW_HIDE);
-		m_imgStatic.SetBitmap(NULL);
+		if (m_bLastShowImage)
+		{
+			m_imgStatic.ShowWindow(SW_HIDE);
+			m_imgStatic.SetBitmap(NULL);
+			m_bLastShowImage = false;
+		}
 	}
 
-	m_edit.MoveWindow(rcEdit);
+	if (rcEdit != m_rcLastEdit)
+	{
+		m_edit.MoveWindow(rcEdit);
+		m_rcLastEdit = rcEdit;
+	}
 }
 
 BOOL CPreviewPane::OnEraseBkgnd(CDC* pDC)
