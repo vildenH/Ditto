@@ -14,9 +14,12 @@ static char THIS_FILE[] = __FILE__;
 #define PREVIEW_TEXT_MAX_BYTES	4000
 #define PREVIEW_MAX_FILES		12
 
+#define ID_PREVIEW_EDIT			100
+#define ID_PREVIEW_IMAGE		101
+
 BEGIN_MESSAGE_MAP(CPreviewPane, CWnd)
-	ON_WM_PAINT()
 	ON_WM_ERASEBKGND()
+	ON_WM_SIZE()
 END_MESSAGE_MAP()
 
 CPreviewPane::CPreviewPane() :
@@ -26,6 +29,7 @@ CPreviewPane::CPreviewPane() :
 	m_nTotalSize(0),
 	m_bTruncatedText(false),
 	m_pBitmap(NULL),
+	m_hPreviewBmp(NULL),
 	m_bFileListTruncated(false),
 	m_crBg(RGB(255, 255, 255)),
 	m_crText(RGB(0, 0, 0)),
@@ -35,6 +39,7 @@ CPreviewPane::CPreviewPane() :
 
 CPreviewPane::~CPreviewPane()
 {
+	ClearImage();
 	if (m_pBitmap)
 	{
 		delete m_pBitmap;
@@ -51,6 +56,31 @@ BOOL CPreviewPane::Create(CWnd* pParentWnd)
 		return FALSE;
 	}
 
+	// read-only rich edit displaying header / formats / files / content
+	DWORD dwEditStyle = WS_CHILD | WS_VISIBLE | WS_VSCROLL |
+		ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL;
+	if (m_edit.Create(NULL, NULL, dwEditStyle, CRect(0, 0, 0, 0), this, ID_PREVIEW_EDIT) == FALSE)
+	{
+		return FALSE;
+	}
+	m_edit.SendMessage(WM_SETFONT, (WPARAM)::GetStockObject(DEFAULT_GUI_FONT), TRUE);
+
+	// standard static showing the image thumbnail when the clip is an image
+	if (m_imgStatic.Create(_T(""), WS_CHILD | SS_BITMAP, CRect(0, 0, 0, 0), this, ID_PREVIEW_IMAGE) == FALSE)
+	{
+		return FALSE;
+	}
+
+	m_edit.SetBackgroundColor(FALSE, m_crBg);
+
+	CHARFORMAT cf;
+	memset(&cf, 0, sizeof(cf));
+	cf.cbSize = sizeof(cf);
+	cf.dwMask = CFM_COLOR;
+	cf.dwEffects = 0;
+	cf.crTextColor = m_crText;
+	m_edit.SetDefaultCharFormat(cf);
+
 	return TRUE;
 }
 
@@ -59,6 +89,28 @@ void CPreviewPane::SetColors(COLORREF bg, COLORREF text, COLORREF headerText)
 	m_crBg = bg;
 	m_crText = text;
 	m_crHeaderText = headerText;
+
+	if (::IsWindow(m_edit.GetSafeHwnd()))
+	{
+		m_edit.SetBackgroundColor(FALSE, m_crBg);
+
+		CHARFORMAT cf;
+		memset(&cf, 0, sizeof(cf));
+		cf.cbSize = sizeof(cf);
+		cf.dwMask = CFM_COLOR;
+		cf.dwEffects = 0;
+		cf.crTextColor = m_crText;
+		m_edit.SetDefaultCharFormat(cf);
+	}
+}
+
+void CPreviewPane::ClearImage()
+{
+	if (m_hPreviewBmp)
+	{
+		::DeleteObject(m_hPreviewBmp);
+		m_hPreviewBmp = NULL;
+	}
 }
 
 void CPreviewPane::SetClip(int clipId)
@@ -83,6 +135,7 @@ void CPreviewPane::SetClip(int clipId)
 		delete m_pBitmap;
 		m_pBitmap = NULL;
 	}
+	ClearImage();
 	m_csImageFormatName.Empty();
 
 	if (clipId > 0)
@@ -93,7 +146,8 @@ void CPreviewPane::SetClip(int clipId)
 		// image loaded in LoadMetadata after we know which image format exists
 	}
 
-	Invalidate(FALSE);
+	UpdateContent();
+	LayoutChildren();
 }
 
 void CPreviewPane::Clear()
@@ -217,6 +271,13 @@ void CPreviewPane::LoadImagePreview(int clipId, const CString& csFormatName)
 						m_pBitmap = DIBImageHelper::GdipImageFromHGLOBAL(hGlobal);
 					}
 					GlobalFree(hGlobal);
+
+					// convert to a standard HBITMAP for the SS_BITMAP static control
+					if (m_pBitmap &&
+						m_pBitmap->GetHBITMAP(Gdiplus::Color(0, 0, 0, 0), &m_hPreviewBmp) != Gdiplus::Ok)
+					{
+						m_hPreviewBmp = NULL;
+					}
 				}
 
 				m_csImageFormatName = csFormatName;
@@ -286,68 +347,19 @@ CString CPreviewPane::FormatByteSize(__int64 nSize) const
 	return CString(szSize);
 }
 
-void CPreviewPane::DrawSectionTitle(CDC& dc, CRect& rc, const CString& csTitle)
+void CPreviewPane::UpdateContent()
 {
-	if (rc.Height() <= 0)
+	if (::IsWindow(m_edit.GetSafeHwnd()) == FALSE)
 	{
 		return;
 	}
 
-	CRect rcTitle = rc;
-	rcTitle.bottom = rcTitle.top + (m_pDpi ? m_pDpi->Scale(16) : 16);
-
-	dc.SetTextColor(m_crHeaderText);
-	dc.DrawText(csTitle, rcTitle, DT_LEFT | DT_SINGLELINE | DT_END_ELLIPSIS);
-
-	rc.top += (m_pDpi ? m_pDpi->Scale(20) : 20);
-}
-
-void CPreviewPane::DrawBodyText(CDC& dc, CRect& rc, const CString& csText)
-{
-	if (rc.Height() <= 0 || csText.IsEmpty())
-	{
-		return;
-	}
-
-	dc.SetTextColor(m_crText);
-	CRect rcText = rc;
-	int nHeight = dc.DrawText(csText, rcText, DT_LEFT | DT_WORDBREAK | DT_END_ELLIPSIS | DT_NOPREFIX | DT_CALCRECT);
-	rcText.bottom = min(rcText.top + nHeight, rc.bottom);
-	dc.DrawText(csText, rcText, DT_LEFT | DT_WORDBREAK | DT_END_ELLIPSIS | DT_NOPREFIX);
-
-	rc.top = rcText.bottom + (m_pDpi ? m_pDpi->Scale(4) : 4);
-}
-
-void CPreviewPane::OnPaint()
-{
-	CPaintDC dc(this);
-
-	CRect rcClient;
-	GetClientRect(rcClient);
-
-	CFont* pOldFont = NULL;
-	CFont* pGuiFont = (CFont*)CFont::FromHandle((HFONT)GetStockObject(DEFAULT_GUI_FONT));
-	if (pGuiFont)
-	{
-		pOldFont = dc.SelectObject(pGuiFont);
-	}
-
-	int oldBkMode = dc.SetBkMode(TRANSPARENT);
-
-	int margin = m_pDpi ? m_pDpi->Scale(8) : 8;
-	CRect rc = rcClient;
-	rc.DeflateRect(margin, margin, margin, margin);
+	CString cs;
 
 	if (m_clipId <= 0)
 	{
-		dc.SetTextColor(m_crHeaderText);
-		dc.DrawText(_T("No item selected"), rc, DT_LEFT | DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-
-		if (pOldFont)
-		{
-			dc.SelectObject(pOldFont);
-		}
-		dc.SetBkMode(oldBkMode);
+		cs = _T("No item selected");
+		m_edit.SetWindowText(cs);
 		return;
 	}
 
@@ -355,82 +367,109 @@ void CPreviewPane::OnPaint()
 	{
 		CString csHeader;
 		csHeader.Format(_T("Clip %d - %s"), m_clipId, FormatByteSize(m_nTotalSize));
-		DrawSectionTitle(dc, rc, csHeader);
+		cs += csHeader;
+		cs += _T("\r\n\r\n");
 
-		CString csFormats;
-		for (size_t i = 0; i < m_formats.size(); i++)
+		if (m_formats.size() > 0)
 		{
-			CString csLine;
-			csLine.Format(_T("%s (%s)"), m_formats[i].m_csName, FormatByteSize(m_formats[i].m_nSize));
-			if (csFormats.IsEmpty() == FALSE)
+			cs += _T("Formats:\r\n");
+			for (size_t i = 0; i < m_formats.size(); i++)
 			{
-				csFormats += _T("\r\n");
+				CString csLine;
+				csLine.Format(_T("%s (%s)"), m_formats[i].m_csName, FormatByteSize(m_formats[i].m_nSize));
+				cs += csLine;
+				if (i + 1 < m_formats.size())
+				{
+					cs += _T("\r\n");
+				}
 			}
-			csFormats += csLine;
-		}
-		if (csFormats.IsEmpty() == FALSE)
-		{
-			DrawSectionTitle(dc, rc, _T("Formats"));
-			DrawBodyText(dc, rc, csFormats);
+			cs += _T("\r\n\r\n");
 		}
 	}
 
-	if (rc.Height() > 0 && m_pBitmap != NULL)
+	if (m_fileNames.GetCount() > 0)
 	{
-		CRect rcImage = rc;
-		DrawSectionTitle(dc, rcImage, _T("Image"));
-
-		int nImgWidth = (int)m_pBitmap->GetWidth();
-		int nImgHeight = (int)m_pBitmap->GetHeight();
-		if (nImgWidth > 0 && nImgHeight > 0 && rcImage.Width() > 0 && rcImage.Height() > 0)
-		{
-			double dScale = min((double)rcImage.Width() / nImgWidth, (double)rcImage.Height() / nImgHeight);
-			dScale = min(dScale, 1.0);
-			int nDrawWidth = max(1, (int)(nImgWidth * dScale));
-			int nDrawHeight = max(1, (int)(nImgHeight * dScale));
-
-			CRect rcDraw(rcImage.left, rcImage.top, rcImage.left + nDrawWidth, rcImage.top + nDrawHeight);
-			Graphics graphics(dc.GetSafeHdc());
-			graphics.DrawImage(m_pBitmap, Gdiplus::Rect(rcDraw.left, rcDraw.top, rcDraw.Width(), rcDraw.Height()));
-
-			rc.top = rcDraw.bottom + (m_pDpi ? m_pDpi->Scale(4) : 4);
-		}
-	}
-
-	if (rc.Height() > 0 && m_fileNames.GetCount() > 0)
-	{
-		CString csFiles;
+		cs += _T("Files:\r\n");
 		for (int i = 0; i < m_fileNames.GetCount(); i++)
 		{
-			if (csFiles.IsEmpty() == FALSE)
-			{
-				csFiles += _T("\r\n");
-			}
-			csFiles += m_fileNames[i];
+			cs += m_fileNames[i];
+			cs += _T("\r\n");
 		}
 		if (m_bFileListTruncated)
 		{
-			csFiles += _T("\r\n...");
+			cs += _T("...");
+			cs += _T("\r\n");
 		}
-		DrawSectionTitle(dc, rc, _T("Files"));
-		DrawBodyText(dc, rc, csFiles);
+		cs += _T("\r\n");
 	}
 
-	if (rc.Height() > 0 && m_csTextPreview.IsEmpty() == FALSE)
+	if (m_csTextPreview.IsEmpty() == FALSE)
 	{
-		DrawSectionTitle(dc, rc, _T("Content"));
-		DrawBodyText(dc, rc, m_csTextPreview);
+		cs += _T("Content:\r\n");
+		cs += m_csTextPreview;
 		if (m_bTruncatedText)
 		{
-			DrawBodyText(dc, rc, _T("..."));
+			cs += _T("\r\n...");
 		}
 	}
 
-	if (pOldFont)
+	m_edit.SetWindowText(cs);
+}
+
+void CPreviewPane::LayoutChildren()
+{
+	if (::IsWindow(m_edit.GetSafeHwnd()) == FALSE)
 	{
-		dc.SelectObject(pOldFont);
+		return;
 	}
-	dc.SetBkMode(oldBkMode);
+
+	CRect rcClient;
+	GetClientRect(rcClient);
+
+	int margin = m_pDpi ? m_pDpi->Scale(4) : 4;
+	rcClient.DeflateRect(margin, margin, margin, margin);
+
+	// show the image thumbnail on top when available
+	CRect rcImage(0, 0, 0, 0);
+	CRect rcEdit = rcClient;
+
+	if (m_hPreviewBmp != NULL && m_pBitmap != NULL)
+	{
+		BITMAP bm;
+		if (::GetObject(m_hPreviewBmp, sizeof(bm), &bm) > 0 &&
+			bm.bmWidth > 0 && bm.bmHeight > 0)
+		{
+			double dScale = min((double)rcClient.Width() / bm.bmWidth, 1.0);
+			int nDrawWidth = max(1, (int)(bm.bmWidth * dScale));
+			int nDrawHeight = max(1, (int)(bm.bmHeight * dScale));
+
+			// keep the thumbnail from eating the whole pane
+			int nMaxHeight = rcClient.Height() / 2;
+			if (nDrawHeight > nMaxHeight)
+			{
+				dScale = (double)nMaxHeight / nDrawHeight;
+				nDrawWidth = max(1, (int)(nDrawWidth * dScale));
+				nDrawHeight = nMaxHeight;
+			}
+
+			rcImage = CRect(rcClient.left, rcClient.top, rcClient.left + nDrawWidth, rcClient.top + nDrawHeight);
+			rcEdit.top = rcImage.bottom + (m_pDpi ? m_pDpi->Scale(4) : 4);
+		}
+	}
+
+	if (m_hPreviewBmp != NULL && rcImage.Height() > 0)
+	{
+		m_imgStatic.SetBitmap(m_hPreviewBmp);
+		m_imgStatic.MoveWindow(rcImage);
+		m_imgStatic.ShowWindow(SW_SHOW);
+	}
+	else
+	{
+		m_imgStatic.ShowWindow(SW_HIDE);
+		m_imgStatic.SetBitmap(NULL);
+	}
+
+	m_edit.MoveWindow(rcEdit);
 }
 
 BOOL CPreviewPane::OnEraseBkgnd(CDC* pDC)
@@ -439,4 +478,10 @@ BOOL CPreviewPane::OnEraseBkgnd(CDC* pDC)
 	GetClientRect(rc);
 	pDC->FillSolidRect(rc, m_crBg);
 	return TRUE;
+}
+
+void CPreviewPane::OnSize(UINT nType, int cx, int cy)
+{
+	CWnd::OnSize(nType, cx, cy);
+	LayoutChildren();
 }

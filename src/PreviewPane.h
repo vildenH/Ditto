@@ -2,8 +2,11 @@
 
 #include <vector>
 #include "DPI.h"
+#include "RichEditCtrlEx.h"
 
 // Alfred-style right side preview pane for the Quick Paste window.
+// Built from standard controls (read-only rich edit + static bitmap),
+// consistent with how the rest of the Ditto UI is built.
 // Shows the formats + sizes, a text preview, an image thumbnail
 // and a file list for the currently selected clip.
 class CPreviewPane : public CWnd
@@ -31,16 +34,17 @@ protected:
 		FormatInfo() : m_nSize(0) {}
 	};
 
-	afx_msg void OnPaint();
 	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
+	afx_msg void OnSize(UINT nType, int cx, int cy);
 
 	void LoadMetadata(int clipId);
 	void LoadTextPreview(int clipId);
 	void LoadImagePreview(int clipId, const CString& csFormatName);
 	void LoadFileList(int clipId);
 
-	void DrawSectionTitle(CDC& dc, CRect& rc, const CString& csTitle);
-	void DrawBodyText(CDC& dc, CRect& rc, const CString& csText);
+	void UpdateContent();
+	void LayoutChildren();
+	void ClearImage();
 	CString FormatByteSize(__int64 nSize) const;
 
 	CDPI* m_pDpi;
@@ -54,6 +58,7 @@ protected:
 	bool m_bTruncatedText;
 
 	Gdiplus::Bitmap* m_pBitmap;
+	HBITMAP m_hPreviewBmp;
 	CString m_csImageFormatName;
 
 	CStringArray m_fileNames;
@@ -62,6 +67,10 @@ protected:
 	COLORREF m_crBg;
 	COLORREF m_crText;
 	COLORREF m_crHeaderText;
+
+	// standard controls doing all the rendering
+	CRichEditCtrlEx m_edit;
+	CStatic m_imgStatic;
 
 	DECLARE_MESSAGE_MAP()
 };
