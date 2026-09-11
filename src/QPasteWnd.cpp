@@ -451,10 +451,11 @@ int CQPasteWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 		return -1;
 	}
 	m_previewPane.SetDpiInfo(&m_DittoWindow.m_dpi);
+	// Use the theme's description window colors, they are designed for
+	// detail/preview style windows and coordinate with the rest of the theme.
 	m_previewPane.SetColors(
-		CGetSetOptions::m_Theme.ListBoxEvenRowsBG(),
-		CGetSetOptions::m_Theme.ListBoxEvenRowsText(),
-		CGetSetOptions::m_Theme.CaptionTextColor());
+		CGetSetOptions::m_Theme.DescriptionWindowBG(),
+		CGetSetOptions::m_Theme.DescriptionWindowText());
 
 	// Create modern scrollbar overlay (vertical)
 	m_modernScrollBar.Create(this, &m_lstHeader, ScrollBarOrientation::Vertical);
@@ -8263,6 +8264,15 @@ void CQPasteWnd::RefreshThemeColors()
 	
 	// Refresh scrollbar colors
 	RefreshScrollBarColors();
+
+	// Refresh preview pane colors (description window colors from the theme)
+	if (::IsWindow(m_previewPane.GetSafeHwnd()))
+	{
+		m_previewPane.SetColors(
+			CGetSetOptions::m_Theme.DescriptionWindowBG(),
+			CGetSetOptions::m_Theme.DescriptionWindowText());
+		m_previewPane.Invalidate(TRUE);
+	}
 	
 	// Force repaint of the entire window including non-client area
 	SetWindowPos(NULL, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);

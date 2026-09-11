@@ -104,6 +104,18 @@ void CPreviewPane::SetColors(COLORREF bg, COLORREF text, COLORREF headerText)
 	}
 }
 
+// Secondary color derived by blending the text color toward the background.
+// Keeps the summary line subtle but readable in any theme.
+void CPreviewPane::SetColors(COLORREF bg, COLORREF text)
+{
+	const int blendPct = 45;
+	COLORREF header = RGB(
+		(GetRValue(bg) * blendPct + GetRValue(text) * (100 - blendPct)) / 100,
+		(GetGValue(bg) * blendPct + GetGValue(text) * (100 - blendPct)) / 100,
+		(GetBValue(bg) * blendPct + GetBValue(text) * (100 - blendPct)) / 100);
+	SetColors(bg, text, header);
+}
+
 void CPreviewPane::ClearImage()
 {
 	if (m_hPreviewBmp)

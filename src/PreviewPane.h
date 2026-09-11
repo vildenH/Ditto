@@ -24,6 +24,9 @@ public:
 	void Clear();
 
 	void SetColors(COLORREF bg, COLORREF text, COLORREF headerText);
+	// Derive the secondary (header/summary) color from the theme colors so the
+	// pane stays coordinated with any theme.
+	void SetColors(COLORREF bg, COLORREF text);
 
 	// apply the same user font as the main list (DPI scaled)
 	void UpdateFont();
