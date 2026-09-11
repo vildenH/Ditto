@@ -87,6 +87,9 @@ public:
 	static CString GetExeFileName();
 	static CString GetAppName();
 
+	static BOOL GetShowPreviewPane();
+	static void SetShowPreviewPane(BOOL bShow);
+
 	static BOOL GetShowIconInSysTray();
 	static BOOL SetShowIconInSysTray(BOOL bShow);
 

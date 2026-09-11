@@ -657,6 +657,7 @@
 #define ID_FIRST_EXIT                   32772
 #define ID_FIRST_SHOWQUICKPASTE         32773
 #define ID_FIRST_TOGGLECONNECTCV        32774
+#define ID_MENU_PREVIEWPANE             33003
 #define ID_MENU_TOGGLECONNECTCV         32775
 #define ID_MENU_PROPERTIES              32776
 #define ID_MENU_FIRSTTENHOTKEYS_USECTRLNUM 32777
@@ -883,7 +884,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_3D_CONTROLS                     1
 #define _APS_NEXT_RESOURCE_VALUE        394
-#define _APS_NEXT_COMMAND_VALUE         33002
+#define _APS_NEXT_COMMAND_VALUE         33004
 #define _APS_NEXT_CONTROL_VALUE         2174
 #define _APS_NEXT_SYMED_VALUE           104
 #endif

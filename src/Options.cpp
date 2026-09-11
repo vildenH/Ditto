@@ -935,6 +935,16 @@ void CGetSetOptions::SetRunOnStartUp(BOOL bRun)
 	::RegCloseKey(hkRun);
 }
 
+BOOL CGetSetOptions::GetShowPreviewPane()
+{
+	return GetProfileLong(_T("ShowPreviewPane"), TRUE);
+}
+
+void CGetSetOptions::SetShowPreviewPane(BOOL bShow)
+{
+	SetProfileLong(_T("ShowPreviewPane"), bShow);
+}
+
 CString CGetSetOptions::GetExeFileName()
 {
 	CString sExeName;

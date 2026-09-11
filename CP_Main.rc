@@ -480,6 +480,7 @@ BEGIN
             MENUITEM SEPARATOR
         END
         MENUITEM "View Full Description",       32793
+        MENUITEM "Preview Pane",                ID_MENU_PREVIEWPANE
         POPUP "Special Paste"
         BEGIN
             MENUITEM "Plain Text Only",             32841

@@ -59,6 +59,7 @@ static char THIS_FILE[] = __FILE__;
 #define TIMER_ERROR_MSG			4
 #define TIMER_DRAG_HIDE_WINDOW	6
 #define TIMER_DO_ACTION	7
+#define TIMER_UPDATE_PREVIEW	8
 
 #define THREAD_DO_QUERY				0
 #define THREAD_EXIT_THREAD			1
@@ -287,6 +288,9 @@ BEGIN_MESSAGE_MAP(CQPasteWnd, CWndEx)
 	ON_COMMAND(ID_SPECIALPASTE_TYPOGLYCEMIA, &CQPasteWnd::OnSpecialpasteTypoglycemia)
 	ON_UPDATE_COMMAND_UI(ID_SPECIALPASTE_TYPOGLYCEMIA, &CQPasteWnd::OnUpdateSpecialpasteTypoglycemia)
 	ON_NOTIFY(NM_CLICK, ID_LIST_HEADER, &CQPasteWnd::OnNMClickList1)
+	ON_MESSAGE(NM_PREVIEW_SEL_CHANGED, &CQPasteWnd::OnPreviewSelChanged)
+	ON_COMMAND(ID_MENU_PREVIEWPANE, &CQPasteWnd::OnMenuPreviewPane)
+ON_UPDATE_COMMAND_UI(ID_MENU_PREVIEWPANE, &CQPasteWnd::OnUpdateMenuPreviewPane)
 	ON_NOTIFY(NM_DBLCLK, ID_LIST_HEADER, &CQPasteWnd::OnNMDblclkList1)
 	ON_NOTIFY(NM_RCLICK, ID_LIST_HEADER, &CQPasteWnd::OnNMRClickList1)
 	ON_NOTIFY(NM_RDBLCLK, ID_LIST_HEADER, &CQPasteWnd::OnNMRDblclkList1)
@@ -434,6 +438,19 @@ int CQPasteWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	}
 	m_lstHeader.SetDpiInfo(&m_DittoWindow.m_dpi);
 	m_lstHeader.ShowWindow(SW_SHOW);
+
+	// Create the preview pane (Alfred style right side details)
+	m_bShowPreviewPane = !!CGetSetOptions::GetShowPreviewPane();
+	if (!m_previewPane.Create(this))
+	{
+		ASSERT(FALSE);
+		return -1;
+	}
+	m_previewPane.SetDpiInfo(&m_DittoWindow.m_dpi);
+	m_previewPane.SetColors(
+		CGetSetOptions::m_Theme.ListBoxEvenRowsBG(),
+		CGetSetOptions::m_Theme.ListBoxEvenRowsText(),
+		CGetSetOptions::m_Theme.CaptionTextColor());
 
 	// Create modern scrollbar overlay (vertical)
 	m_modernScrollBar.Create(this, &m_lstHeader, ScrollBarOrientation::Vertical);
@@ -702,6 +719,15 @@ void CQPasteWnd::MoveControls()
 
 	int extraSize = 0;
 
+	// Preview pane occupies the right side of the list area when visible.
+	// Hide it when the window is too narrow to fit list + pane comfortably.
+	int paneWidth = 0;
+	if (m_bShowPreviewPane && cx > m_DittoWindow.m_dpi.Scale(480))
+	{
+		paneWidth = m_DittoWindow.m_dpi.Scale(260);
+	}
+	int listWidth = max(1, cx - paneWidth);
+
 	// Hide native scrollbar if using modern scrollbar OR if scrollbar is set to not always show
 	bool hideNativeScrollbar = CGetSetOptions::m_useModernScrollBar || 
 		(m_showScrollBars == false && CGetSetOptions::m_showScrollBar == false);
@@ -714,7 +740,7 @@ void CQPasteWnd::MoveControls()
 		CRect r;
 		m_lstHeader.GetWindowRect(&r);
 
-		rgnRect.CreateRectRgn(0, 0, cx, (cy - listBoxBottomOffset - topOfListBox) );
+		rgnRect.CreateRectRgn(0, 0, listWidth, (cy - listBoxBottomOffset - topOfListBox) );
 
 		m_lstHeader.SetWindowRgn(rgnRect, TRUE);
 	}
@@ -733,14 +759,14 @@ void CQPasteWnd::MoveControls()
 		m_modernScrollBarHorz.ShowWindow(SW_HIDE);
 
 		auto border = m_DittoWindow.m_dpi.Scale(10);
-		m_noSearchResultsStatic.MoveWindow(border, topOfListBox + border, cx - border, cy - listBoxBottomOffset - topOfListBox + 1 - border);
+		m_noSearchResultsStatic.MoveWindow(border, topOfListBox + border, listWidth - border, cy - listBoxBottomOffset - topOfListBox + 1 - border);
 	}
 	else
 	{
 		m_lstHeader.ShowWindow(SW_SHOW);
 		m_noSearchResultsStatic.ShowWindow(SW_HIDE);
 
-		m_lstHeader.MoveWindow(0, topOfListBox, cx + extraSize, cy - listBoxBottomOffset - topOfListBox + extraSize + 1);
+		m_lstHeader.MoveWindow(0, topOfListBox, listWidth + extraSize, cy - listBoxBottomOffset - topOfListBox + extraSize + 1);
 		
 		// Update modern scrollbar position and visibility (only if enabled)
 		if (CGetSetOptions::m_useModernScrollBar)
@@ -767,6 +793,18 @@ void CQPasteWnd::MoveControls()
 		}
 	}
 	m_search.MoveWindow(m_DittoWindow.m_dpi.Scale(34), cy - m_DittoWindow.m_dpi.Scale(searchRowStart - 5), cx - m_DittoWindow.m_dpi.Scale(70), m_DittoWindow.m_dpi.Scale(25));
+
+	// Position the preview pane so it exactly mirrors the list rect on the right side
+	if (::IsWindow(m_previewPane.GetSafeHwnd()))
+	{
+		if (paneWidth > 0)
+		{
+			CRect rcPane(listWidth, topOfListBox, cx, cy - listBoxBottomOffset + 1);
+			m_previewPane.MoveWindow(rcPane);
+			Log(StrF(_T("MoveControls preview pane rect: (%d, %d) %dx%d, client %dx%d"), rcPane.left, rcPane.top, rcPane.Width(), rcPane.Height(), cx, cy));
+		}
+		m_previewPane.ShowWindow(paneWidth > 0 ? SW_SHOW : SW_HIDE);
+	}
 
 	m_systemMenu.MoveWindow(cx - m_DittoWindow.m_dpi.Scale(30), cy - m_DittoWindow.m_dpi.Scale(28), m_DittoWindow.m_dpi.Scale(24), m_DittoWindow.m_dpi.Scale(24));
 
@@ -1376,7 +1414,68 @@ LRESULT CQPasteWnd::OnRefreshView(WPARAM wParam, LPARAM lParam)
 
 	Log(StrF(_T("OnRefreshView - End - Count: %d, Action: %s"), m_listItems.size(), action));
 
+	UpdatePreviewPane();
+
 	return TRUE;
+}
+
+void CQPasteWnd::UpdatePreviewPane()
+{
+	if (!m_bShowPreviewPane || !::IsWindow(m_previewPane.GetSafeHwnd()))
+	{
+		return;
+	}
+
+	ARRAY arr;
+	m_lstHeader.GetSelectionIndexes(arr);
+	if (arr.GetSize() == 0)
+	{
+		Log(_T("UpdatePreviewPane - no selection, clearing"));
+		m_previewPane.SetClip(-1);
+		return;
+	}
+
+	// preview the first selected item
+	int row = arr[0];
+	if (row < 0 || row >= m_lstHeader.GetItemCount())
+	{
+		m_previewPane.SetClip(-1);
+		return;
+	}
+
+	int clipId = (int)m_lstHeader.GetItemData(row);
+	Log(StrF(_T("UpdatePreviewPane - row: %d, clipId: %d"), row, clipId));
+	if (clipId <= 0)
+	{
+		m_previewPane.SetClip(-1);
+	}
+	else
+	{
+		m_previewPane.SetClip(clipId);
+	}
+}
+
+LRESULT CQPasteWnd::OnPreviewSelChanged(WPARAM /*wParam*/, LPARAM /*lParam*/)
+{
+	// debounce rapid selection changes while arrowing through the list
+	SetTimer(TIMER_UPDATE_PREVIEW, 150, NULL);
+	return 0;
+}
+
+void CQPasteWnd::OnMenuPreviewPane()
+{
+	m_bShowPreviewPane = !m_bShowPreviewPane;
+	CGetSetOptions::SetShowPreviewPane(m_bShowPreviewPane);
+	MoveControls();
+	if (m_bShowPreviewPane)
+	{
+		UpdatePreviewPane();
+	}
+}
+
+void CQPasteWnd::OnUpdateMenuPreviewPane(CCmdUI* pCmdUI)
+{
+	pCmdUI->SetCheck(m_bShowPreviewPane ? 1 : 0);
 }
 
 void CQPasteWnd::RefreshNc()
@@ -6558,6 +6657,11 @@ void CQPasteWnd::OnTimer(UINT_PTR nIDEvent)
 	{
 		KillTimer(TIMER_ERROR_MSG);
 		m_popupMsg.Hide();
+	}
+	else if (nIDEvent == TIMER_UPDATE_PREVIEW)
+	{
+		KillTimer(TIMER_UPDATE_PREVIEW);
+		UpdatePreviewPane();
 	}
 	else if (nIDEvent == TIMER_DRAG_HIDE_WINDOW)
 	{

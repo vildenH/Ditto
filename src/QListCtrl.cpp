@@ -1939,6 +1939,8 @@ void CQListCtrl::OnSelectionChange(NMHDR* pNMHDR, LRESULT* pResult)
 		if (pParent && pParent->GetSafeHwnd())
 		{
 			pParent->PostMessage(NM_UPDATE_SCROLLBAR, FALSE, 0);
+			// Notify parent to update preview pane selection
+			pParent->PostMessage(NM_PREVIEW_SEL_CHANGED, 0, 0);
 		}
 
 		if (VALID_TOOLTIP &&
