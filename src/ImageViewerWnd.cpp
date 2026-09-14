@@ -69,14 +69,22 @@ bool CImageViewerWnd::ShowForClip(int clipId, CWnd* pRefWnd)
 	LPCTSTR csClass = AfxRegisterWndClass(
 		CS_DBLCLKS | CS_HREDRAW | CS_VREDRAW, ::LoadCursor(NULL, IDC_ARROW));
 
+	// the visible popup activates itself during creation, which deactivates the
+	// quick paste window - mark the viewer as open BEFORE creating it so the
+	// quick paste window knows not to auto-hide (and destroy the preview pane
+	// we are currently called from)
+	s_pInstance = pWnd;
+
+	// own the viewer by the top level window, not by the preview pane child
+	CWnd* pOwner = pRefWnd ? pRefWnd->GetTopLevelParent() : NULL;
 	if (pWnd->CreateEx(WS_EX_TOPMOST | WS_EX_TOOLWINDOW, csClass, _T(""),
-		WS_POPUP | WS_VISIBLE, rcMonitor, pRefWnd, 0) == FALSE)
+		WS_POPUP | WS_VISIBLE, rcMonitor, pOwner, 0) == FALSE)
 	{
+		s_pInstance = NULL;
 		delete pWnd;
 		return false;
 	}
 
-	s_pInstance = pWnd;
 	pWnd->SetFocus();
 	Log(StrF(_T("ImageViewerWnd shown for clip %d, image %d x %d"),
 		clipId, (int)pWnd->m_pImage->GetWidth(), (int)pWnd->m_pImage->GetHeight()));
