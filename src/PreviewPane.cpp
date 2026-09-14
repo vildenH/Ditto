@@ -71,8 +71,9 @@ BOOL CPreviewPane::Create(CWnd* pParentWnd)
 	}
 	UpdateFont();
 
-	// standard static showing the image thumbnail when the clip is an image
-	if (m_imgStatic.Create(_T(""), WS_CHILD | SS_BITMAP, CRect(0, 0, 0, 0), this, ID_PREVIEW_IMAGE) == FALSE)
+	// standard static showing the image thumbnail when the clip is an image;
+	// SS_REALSIZECONTROL makes it scale the bitmap into the rect we compute
+	if (m_imgStatic.Create(_T(""), WS_CHILD | SS_BITMAP | SS_REALSIZECONTROL, CRect(0, 0, 0, 0), this, ID_PREVIEW_IMAGE) == FALSE)
 	{
 		Log(_T("PreviewPane Create - image static create failed"));
 		return FALSE;
@@ -146,6 +147,12 @@ void CPreviewPane::ClearImage()
 {
 	if (m_hPreviewBmp)
 	{
+		// detach from the static first, drawing with a deleted handle leaves
+		// garbage from the previous clip on screen
+		if (::IsWindow(m_imgStatic.GetSafeHwnd()) && m_imgStatic.GetBitmap() == m_hPreviewBmp)
+		{
+			m_imgStatic.SetBitmap(NULL);
+		}
 		::DeleteObject(m_hPreviewBmp);
 		m_hPreviewBmp = NULL;
 	}
@@ -687,6 +694,7 @@ void CPreviewPane::LayoutChildren()
 		{
 			m_imgStatic.MoveWindow(rcImage);
 			m_imgStatic.ShowWindow(SW_SHOW);
+			m_rcLastImage = rcImage;
 		}
 		m_bLastShowImage = true;
 	}
