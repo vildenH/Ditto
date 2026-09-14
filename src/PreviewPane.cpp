@@ -3,6 +3,7 @@
 #include "CP_Main.h"
 #include "Misc.h"
 #include "ImageHelper.h"
+#include "ImageViewerWnd.h"
 #include "Sqlite\CppSQLite3.h"
 
 #ifdef _DEBUG
@@ -22,6 +23,7 @@ BEGIN_MESSAGE_MAP(CPreviewPane, CWnd)
 	ON_WM_ERASEBKGND()
 	ON_WM_SIZE()
 	ON_WM_CTLCOLOR()
+	ON_CONTROL(STN_CLICKED, ID_PREVIEW_IMAGE, OnImageZoom)
 END_MESSAGE_MAP()
 
 CPreviewPane::CPreviewPane() :
@@ -72,8 +74,9 @@ BOOL CPreviewPane::Create(CWnd* pParentWnd)
 	UpdateFont();
 
 	// standard static showing the image thumbnail when the clip is an image;
-	// SS_REALSIZECONTROL makes it scale the bitmap into the rect we compute
-	if (m_imgStatic.Create(_T(""), WS_CHILD | SS_BITMAP | SS_REALSIZECONTROL, CRect(0, 0, 0, 0), this, ID_PREVIEW_IMAGE) == FALSE)
+	// SS_REALSIZECONTROL makes it scale the bitmap into the rect we compute,
+	// SS_NOTIFY so a click on it can open the full image viewer
+	if (m_imgStatic.Create(_T(""), WS_CHILD | SS_BITMAP | SS_REALSIZECONTROL | SS_NOTIFY, CRect(0, 0, 0, 0), this, ID_PREVIEW_IMAGE) == FALSE)
 	{
 		Log(_T("PreviewPane Create - image static create failed"));
 		return FALSE;
@@ -573,6 +576,10 @@ void CPreviewPane::UpdateContent()
 			csChars.Format(theApp.m_Language.GetString("PreviewCharCount", "%d 字符"), m_nTextLength);
 			csMeta += _T(" · ") + csChars;
 		}
+		if (m_hPreviewBmp != NULL)
+		{
+			csMeta += _T(" · ") + theApp.m_Language.GetString("PreviewZoomHint", "space / click to zoom");
+		}
 	}
 
 	// the summary lives in the pinned footer bar, the edit holds only content
@@ -633,6 +640,14 @@ HBRUSH CPreviewPane::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
 		return m_brBg;
 	}
 	return CWnd::OnCtlColor(pDC, pWnd, nCtlColor);
+}
+
+void CPreviewPane::OnImageZoom()
+{
+	if (m_clipId > 0 && m_hPreviewBmp != NULL)
+	{
+		CImageViewerWnd::ShowForClip(m_clipId, this);
+	}
 }
 
 void CPreviewPane::LayoutChildren()
