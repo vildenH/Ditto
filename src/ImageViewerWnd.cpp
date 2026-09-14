@@ -23,7 +23,8 @@ BEGIN_MESSAGE_MAP(CImageViewerWnd, CWnd)
 END_MESSAGE_MAP()
 
 CImageViewerWnd::CImageViewerWnd() :
-	m_pImage(NULL)
+	m_pImage(NULL),
+	m_bClosing(false)
 {
 	m_hintFont.CreatePointFont(100, _T("Segoe UI"));
 }
@@ -107,6 +108,7 @@ bool CImageViewerWnd::LoadFromClip(int clipId)
 			return false;
 		}
 
+		Gdiplus::Bitmap* pLoaded = NULL;
 		HGLOBAL hGlobal = NewGlobalP((LPVOID)pData, nLen);
 		if (hGlobal == NULL)
 		{
@@ -115,13 +117,26 @@ bool CImageViewerWnd::LoadFromClip(int clipId)
 
 		if (csFormat.CompareNoCase(_T("PNG")) == 0)
 		{
-			m_pImage = PNGImageHelper::GdipImageFromHGLOBAL(hGlobal);
+			pLoaded = PNGImageHelper::GdipImageFromHGLOBAL(hGlobal);
 		}
 		else
 		{
-			m_pImage = DIBImageHelper::GdipImageFromHGLOBAL(hGlobal);
+			pLoaded = DIBImageHelper::GdipImageFromHGLOBAL(hGlobal);
 		}
 		GlobalFree(hGlobal);
+
+		// GDI+ reads lazily from the stream, which is already released by now.
+		// Clone so the viewer owns its pixels and can paint at any time.
+		if (pLoaded != NULL && pLoaded->GetLastStatus() == Gdiplus::Ok)
+		{
+			m_pImage = pLoaded->Clone(0, 0, pLoaded->GetWidth(), pLoaded->GetHeight(),
+				PixelFormat32bppPARGB);
+			delete pLoaded;
+		}
+		else if (pLoaded != NULL)
+		{
+			delete pLoaded;
+		}
 
 		if (m_pImage == NULL || m_pImage->GetLastStatus() != Gdiplus::Ok)
 		{
@@ -141,8 +156,10 @@ bool CImageViewerWnd::LoadFromClip(int clipId)
 
 void CImageViewerWnd::Close()
 {
-	if (::IsWindow(GetSafeHwnd()))
+	// DestroyWindow triggers another WM_KILLFOCUS, don't recurse
+	if (m_bClosing == false && ::IsWindow(GetSafeHwnd()))
 	{
+		m_bClosing = true;
 		DestroyWindow();
 	}
 }

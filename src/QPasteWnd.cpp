@@ -868,7 +868,11 @@ void CQPasteWnd::OnActivate(UINT nState, CWnd* pWndOther, BOOL bMinimized)
 
 		if (!CGetSetOptions::m_bShowPersistent && !CGetSetOptions::m_bDoNotHideOnDeactivate)
 		{
-			HideQPasteWindow(false);
+			// the full image viewer takes activation while open, stay up behind it
+			if (CImageViewerWnd::IsOpen() == false)
+			{
+				HideQPasteWindow(false);
+			}
 		}
 		else if (CGetSetOptions::GetAutoHide())
 		{
@@ -3225,18 +3229,6 @@ BOOL CQPasteWnd::PreTranslateMessage(MSG* pMsg)
 	}
 	break;
 	default:
-		// space zooms the image of the current clip, Quick Look style; only
-		// when the list has focus so the search box keeps its normal space
-		if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_SPACE &&
-			m_bShowPreviewPane && m_previewPane.HasImage())
-		{
-			CWnd* pFocus = GetFocus();
-			if (pFocus != NULL && pFocus->m_hWnd == m_lstHeader.m_hWnd)
-			{
-				CImageViewerWnd::ShowForClip(m_previewPane.GetClipId(), this);
-				return TRUE;
-			}
-		}
 		if (CheckActions(pMsg))
 		{
 			return TRUE;

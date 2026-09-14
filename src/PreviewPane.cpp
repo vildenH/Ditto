@@ -578,7 +578,7 @@ void CPreviewPane::UpdateContent()
 		}
 		if (m_hPreviewBmp != NULL)
 		{
-			csMeta += _T(" · ") + theApp.m_Language.GetString("PreviewZoomHint", "space / click to zoom");
+			csMeta += _T(" · ") + theApp.m_Language.GetString("PreviewZoomHint", "click to zoom");
 		}
 	}
 

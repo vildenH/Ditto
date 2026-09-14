@@ -11,6 +11,10 @@ public:
 	// loadable image.
 	static bool ShowForClip(int clipId, CWnd* pRefWnd);
 
+	// true while a viewer window is up, used to keep the quick paste window
+	// from auto-hiding when the viewer takes activation
+	static bool IsOpen() { return s_pInstance != NULL; }
+
 protected:
 	CImageViewerWnd();
 	virtual ~CImageViewerWnd();
@@ -28,6 +32,8 @@ protected:
 
 	Gdiplus::Bitmap* m_pImage;
 	CFont m_hintFont;
+	// re-entrancy guard, DestroyWindow sends another WM_KILLFOCUS
+	bool m_bClosing;
 
 	// only one viewer at a time
 	static CImageViewerWnd* s_pInstance;

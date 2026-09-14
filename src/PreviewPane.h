@@ -28,10 +28,6 @@ public:
 	// pane stays coordinated with any theme.
 	void SetColors(COLORREF bg, COLORREF text);
 
-	// true when the current clip has an image that can be zoomed
-	bool HasImage() const { return m_hPreviewBmp != NULL; }
-	int GetClipId() const { return m_clipId; }
-
 	// apply the same user font as the main list (DPI scaled)
 	void UpdateFont();
 
