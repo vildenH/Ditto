@@ -42,6 +42,8 @@ protected:
 
 	afx_msg BOOL OnEraseBkgnd(CDC* pDC);
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	// paints the pinned summary footer with the theme colors
+	afx_msg HBRUSH OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor);
 
 	void LoadMetadata(int clipId);
 	void LoadTextPreview(int clipId);
@@ -81,11 +83,15 @@ protected:
 	// last child rects, to skip redundant MoveWindow calls (avoids flicker)
 	CRect m_rcLastEdit;
 	CRect m_rcLastImage;
+	CRect m_rcLastMeta;
 	bool m_bLastShowImage;
 
 	// standard controls doing all the rendering
 	CRichEditCtrlEx m_edit;
 	CStatic m_imgStatic;
+	// pinned footer bar with the type/size/chars summary, never scrolls away
+	CStatic m_metaStatic;
+	CBrush m_brBg;
 	CFont m_Font;
 
 	DECLARE_MESSAGE_MAP()

@@ -16,10 +16,12 @@ static char THIS_FILE[] = __FILE__;
 
 #define ID_PREVIEW_EDIT			100
 #define ID_PREVIEW_IMAGE		101
+#define ID_PREVIEW_META			102
 
 BEGIN_MESSAGE_MAP(CPreviewPane, CWnd)
 	ON_WM_ERASEBKGND()
 	ON_WM_SIZE()
+	ON_WM_CTLCOLOR()
 END_MESSAGE_MAP()
 
 CPreviewPane::CPreviewPane() :
@@ -55,6 +57,7 @@ BOOL CPreviewPane::Create(CWnd* pParentWnd)
 	CRect rc(0, 0, 0, 0);
 	if (CreateEx(0, NULL, _T(""), dwStyle, rc, pParentWnd, 0) == FALSE)
 	{
+		Log(_T("PreviewPane Create - pane CreateEx failed"));
 		return FALSE;
 	}
 
@@ -63,6 +66,7 @@ BOOL CPreviewPane::Create(CWnd* pParentWnd)
 		ES_LEFT | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL;
 	if (m_edit.Create(NULL, NULL, dwEditStyle, CRect(0, 0, 0, 0), this, ID_PREVIEW_EDIT) == FALSE)
 	{
+		Log(_T("PreviewPane Create - edit create failed"));
 		return FALSE;
 	}
 	UpdateFont();
@@ -70,8 +74,18 @@ BOOL CPreviewPane::Create(CWnd* pParentWnd)
 	// standard static showing the image thumbnail when the clip is an image
 	if (m_imgStatic.Create(_T(""), WS_CHILD | SS_BITMAP, CRect(0, 0, 0, 0), this, ID_PREVIEW_IMAGE) == FALSE)
 	{
+		Log(_T("PreviewPane Create - image static create failed"));
 		return FALSE;
 	}
+
+	// pinned footer bar for the type/size/chars summary
+	if (m_metaStatic.Create(_T(""), WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE | SS_LEFTNOWORDWRAP,
+		CRect(0, 0, 0, 0), this, ID_PREVIEW_META) == FALSE)
+	{
+		Log(StrF(_T("PreviewPane Create - meta static create failed, err=%d"), ::GetLastError()));
+		return FALSE;
+	}
+	m_brBg.CreateSolidBrush(m_crBg);
 
 	m_edit.SetBackgroundColor(FALSE, m_crBg);
 
@@ -103,6 +117,16 @@ void CPreviewPane::SetColors(COLORREF bg, COLORREF text, COLORREF headerText)
 		cf.dwEffects = 0;
 		cf.crTextColor = m_crText;
 		m_edit.SetDefaultCharFormat(cf);
+	}
+
+	if (m_brBg.GetSafeHandle())
+	{
+		m_brBg.DeleteObject();
+	}
+	m_brBg.CreateSolidBrush(m_crBg);
+	if (::IsWindow(m_metaStatic.GetSafeHwnd()))
+	{
+		m_metaStatic.Invalidate();
 	}
 }
 
@@ -160,6 +184,10 @@ void CPreviewPane::SetClip(int clipId)
 		LoadFileList(clipId);
 		// image loaded in LoadMetadata after we know which image format exists
 	}
+
+	Log(StrF(_T("PreviewPane SetClip %d: formats=%d totalSize=%I64d textLen=%d files=%d image=%d"),
+		clipId, (int)m_formats.size(), m_nTotalSize, m_nTextLength,
+		(int)m_fileNames.GetCount(), m_hPreviewBmp != NULL ? 1 : 0));
 
 	UpdateContent();
 	LayoutChildren();
@@ -457,6 +485,11 @@ void CPreviewPane::UpdateFont()
 	m_Font.DeleteObject();
 	m_Font.CreateFontIndirect(&lf);
 	m_edit.SetFont(&m_Font);
+	// UpdateFont is called from Create before the footer static exists
+	if (::IsWindow(m_metaStatic.GetSafeHwnd()))
+	{
+		m_metaStatic.SetFont(&m_Font);
+	}
 
 	// changing the font resets rich edit formatting, re-apply the theme text color
 	CHARFORMAT cf;
@@ -474,16 +507,21 @@ void CPreviewPane::UpdateContent()
 {
 	if (::IsWindow(m_edit.GetSafeHwnd()) == FALSE)
 	{
+		Log(_T("PreviewPane UpdateContent - edit not ready, skip"));
 		return;
 	}
 
 	if (m_clipId <= 0)
 	{
+		if (::IsWindow(m_metaStatic.GetSafeHwnd()))
+		{
+			m_metaStatic.SetWindowText(_T(""));
+		}
 		m_edit.SetWindowText(theApp.m_Language.GetString("PreviewNoItemSelected", "No item selected"));
 		return;
 	}
 
-	// Alfred-style: one small gray summary line, then the actual content
+	// one small gray summary line, pinned to the bottom footer bar
 	CString csType = GetFriendlyTypeName();
 
 	// Show the size of the representative format, not the sum of all stored
@@ -530,12 +568,16 @@ void CPreviewPane::UpdateContent()
 		}
 	}
 
-	CString cs = csMeta;
-	cs += _T("\r\n");
+	// the summary lives in the pinned footer bar, the edit holds only content
+	if (::IsWindow(m_metaStatic.GetSafeHwnd()))
+	{
+		m_metaStatic.SetWindowText(csMeta);
+	}
+
+	CString cs;
 
 	if (m_fileNames.GetCount() > 0)
 	{
-		cs += _T("\r\n");
 		for (int i = 0; i < m_fileNames.GetCount(); i++)
 		{
 			cs += m_fileNames[i];
@@ -549,7 +591,10 @@ void CPreviewPane::UpdateContent()
 
 	if (m_csTextPreview.IsEmpty() == FALSE)
 	{
-		cs += _T("\r\n");
+		if (cs.IsEmpty() == FALSE)
+		{
+			cs += _T("\r\n");
+		}
 		cs += m_csTextPreview;
 		if (m_bTruncatedText)
 		{
@@ -558,32 +603,29 @@ void CPreviewPane::UpdateContent()
 	}
 
 	// suspend painting while doing the multi-step text update, otherwise each
-	// step (set text, select, color, scroll) causes its own synchronous repaint
-	// and the pane visibly flickers on every selection change
+	// step (set text, scroll) causes its own synchronous repaint and the pane
+	// visibly flickers on every selection change
 	m_edit.SetRedraw(FALSE);
 
 	m_edit.SetWindowText(cs);
 
-	// render the summary line small and gray, the content normal
-	CHARRANGE cr;
-	cr.cpMin = 0;
-	cr.cpMax = csMeta.GetLength();
-	m_edit.SetSel(cr);
-
-	CHARFORMAT cf;
-	memset(&cf, 0, sizeof(cf));
-	cf.cbSize = sizeof(cf);
-	cf.dwMask = CFM_COLOR;
-	cf.dwEffects = 0;
-	cf.crTextColor = m_crHeaderText;
-	m_edit.SetSelectionCharFormat(cf);
-
-	// deselect and scroll back to the top so the summary line is visible
+	// deselect and scroll back to the top so the content starts at the top
 	m_edit.SetSel(0, 0);
 	m_edit.LineScroll(-m_edit.GetLineCount());
 
 	m_edit.SetRedraw(TRUE);
 	m_edit.RedrawWindow(NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOERASE);
+}
+
+HBRUSH CPreviewPane::OnCtlColor(CDC* pDC, CWnd* pWnd, UINT nCtlColor)
+{
+	if (pWnd != NULL && pWnd->GetSafeHwnd() == m_metaStatic.GetSafeHwnd())
+	{
+		pDC->SetTextColor(m_crHeaderText);
+		pDC->SetBkColor(m_crBg);
+		return m_brBg;
+	}
+	return CWnd::OnCtlColor(pDC, pWnd, nCtlColor);
 }
 
 void CPreviewPane::LayoutChildren()
@@ -599,9 +641,17 @@ void CPreviewPane::LayoutChildren()
 	int margin = m_pDpi ? m_pDpi->Scale(4) : 4;
 	rcClient.DeflateRect(margin, margin, margin, margin);
 
+	// carve out the pinned summary footer at the bottom, the content area
+	// (image thumbnail + text) gets whatever is left above it
+	int nFooterHeight = m_pDpi ? m_pDpi->Scale(20) : 20;
+	int nFooterGap = m_pDpi ? m_pDpi->Scale(2) : 2;
+	CRect rcMeta(rcClient.left, rcClient.bottom - nFooterHeight, rcClient.right, rcClient.bottom);
+	CRect rcContent = rcClient;
+	rcContent.bottom = rcMeta.top - nFooterGap;
+
 	// show the image thumbnail on top when available
 	CRect rcImage(0, 0, 0, 0);
-	CRect rcEdit = rcClient;
+	CRect rcEdit = rcContent;
 
 	if (m_hPreviewBmp != NULL && m_pBitmap != NULL)
 	{
@@ -609,12 +659,12 @@ void CPreviewPane::LayoutChildren()
 		if (::GetObject(m_hPreviewBmp, sizeof(bm), &bm) > 0 &&
 			bm.bmWidth > 0 && bm.bmHeight > 0)
 		{
-			double dScale = min((double)rcClient.Width() / bm.bmWidth, 1.0);
+			double dScale = min((double)rcContent.Width() / bm.bmWidth, 1.0);
 			int nDrawWidth = max(1, (int)(bm.bmWidth * dScale));
 			int nDrawHeight = max(1, (int)(bm.bmHeight * dScale));
 
 			// keep the thumbnail from eating the whole pane
-			int nMaxHeight = rcClient.Height() / 2;
+			int nMaxHeight = rcContent.Height() / 2;
 			if (nDrawHeight > nMaxHeight)
 			{
 				dScale = (double)nMaxHeight / nDrawHeight;
@@ -622,7 +672,7 @@ void CPreviewPane::LayoutChildren()
 				nDrawHeight = nMaxHeight;
 			}
 
-			rcImage = CRect(rcClient.left, rcClient.top, rcClient.left + nDrawWidth, rcClient.top + nDrawHeight);
+			rcImage = CRect(rcContent.left, rcContent.top, rcContent.left + nDrawWidth, rcContent.top + nDrawHeight);
 			rcEdit.top = rcImage.bottom + (m_pDpi ? m_pDpi->Scale(4) : 4);
 		}
 	}
@@ -654,6 +704,12 @@ void CPreviewPane::LayoutChildren()
 	{
 		m_edit.MoveWindow(rcEdit);
 		m_rcLastEdit = rcEdit;
+	}
+
+	if (::IsWindow(m_metaStatic.GetSafeHwnd()) && rcMeta != m_rcLastMeta)
+	{
+		m_metaStatic.MoveWindow(rcMeta);
+		m_rcLastMeta = rcMeta;
 	}
 }
 

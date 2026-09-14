@@ -447,6 +447,7 @@ int CQPasteWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 	m_bShowPreviewPane = !!CGetSetOptions::GetShowPreviewPane();
 	if (!m_previewPane.Create(this))
 	{
+		Log(_T("CQPasteWnd::OnCreate - preview pane create FAILED"));
 		ASSERT(FALSE);
 		return -1;
 	}
