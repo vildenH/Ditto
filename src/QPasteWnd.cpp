@@ -734,6 +734,9 @@ void CQPasteWnd::MoveControls()
 		paneWidth = (int)(cx * dPaneRatio);
 	}
 	int listWidth = max(1, cx - paneWidth);
+	// when the pane is visible it takes the LEFT side, the list starts after it
+	int listX = paneWidth;
+	int paneX = 0;
 
 	// Hide native scrollbar if using modern scrollbar OR if scrollbar is set to not always show
 	bool hideNativeScrollbar = CGetSetOptions::m_useModernScrollBar || 
@@ -766,14 +769,14 @@ void CQPasteWnd::MoveControls()
 		m_modernScrollBarHorz.ShowWindow(SW_HIDE);
 
 		auto border = m_DittoWindow.m_dpi.Scale(10);
-		m_noSearchResultsStatic.MoveWindow(border, topOfListBox + border, listWidth - border, cy - listBoxBottomOffset - topOfListBox + 1 - border);
+		m_noSearchResultsStatic.MoveWindow(listX + border, topOfListBox + border, listWidth - border, cy - listBoxBottomOffset - topOfListBox + 1 - border);
 	}
 	else
 	{
 		m_lstHeader.ShowWindow(SW_SHOW);
 		m_noSearchResultsStatic.ShowWindow(SW_HIDE);
 
-		m_lstHeader.MoveWindow(0, topOfListBox, listWidth + extraSize, cy - listBoxBottomOffset - topOfListBox + extraSize + 1);
+		m_lstHeader.MoveWindow(listX, topOfListBox, listWidth + extraSize, cy - listBoxBottomOffset - topOfListBox + extraSize + 1);
 		
 		// Update modern scrollbar position and visibility (only if enabled)
 		if (CGetSetOptions::m_useModernScrollBar)
@@ -801,12 +804,12 @@ void CQPasteWnd::MoveControls()
 	}
 	m_search.MoveWindow(m_DittoWindow.m_dpi.Scale(34), cy - m_DittoWindow.m_dpi.Scale(searchRowStart - 5), cx - m_DittoWindow.m_dpi.Scale(70), m_DittoWindow.m_dpi.Scale(25));
 
-	// Position the preview pane so it exactly mirrors the list rect on the right side
+	// Position the preview pane on the LEFT side, mirroring the list rect to its right
 	if (::IsWindow(m_previewPane.GetSafeHwnd()))
 	{
 		if (paneWidth > 0)
 		{
-			CRect rcPane(listWidth, topOfListBox, cx, cy - listBoxBottomOffset + 1);
+			CRect rcPane(paneX, topOfListBox, paneX + paneWidth, cy - listBoxBottomOffset + 1);
 			m_previewPane.MoveWindow(rcPane);
 			Log(StrF(_T("MoveControls preview pane rect: (%d, %d) %dx%d, client %dx%d"), rcPane.left, rcPane.top, rcPane.Width(), rcPane.Height(), cx, cy));
 		}
