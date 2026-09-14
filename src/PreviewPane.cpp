@@ -195,10 +195,6 @@ void CPreviewPane::SetClip(int clipId)
 		// image loaded in LoadMetadata after we know which image format exists
 	}
 
-	Log(StrF(_T("PreviewPane SetClip %d: formats=%d totalSize=%I64d textLen=%d files=%d image=%d"),
-		clipId, (int)m_formats.size(), m_nTotalSize, m_nTextLength,
-		(int)m_fileNames.GetCount(), m_hPreviewBmp != NULL ? 1 : 0));
-
 	UpdateContent();
 	LayoutChildren();
 }
@@ -573,7 +569,7 @@ void CPreviewPane::UpdateContent()
 		if (m_nTextLength >= 0)
 		{
 			CString csChars;
-			csChars.Format(theApp.m_Language.GetString("PreviewCharCount", "%d 字符"), m_nTextLength);
+			csChars.Format(theApp.m_Language.GetString("PreviewCharCount", "%d characters"), m_nTextLength);
 			csMeta += _T(" · ") + csChars;
 		}
 		if (m_hPreviewBmp != NULL)
