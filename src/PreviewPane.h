@@ -63,6 +63,9 @@ protected:
 
 	CString m_csTextPreview;
 	bool m_bTruncatedText;
+	// full character count of the text clip (-1 when not a text clip),
+	// counted over the whole blob so truncation of the preview doesn't skew it
+	int m_nTextLength;
 
 	Gdiplus::Bitmap* m_pBitmap;
 	HBITMAP m_hPreviewBmp;

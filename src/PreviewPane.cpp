@@ -31,6 +31,7 @@ CPreviewPane::CPreviewPane() :
 	m_pBitmap(NULL),
 	m_hPreviewBmp(NULL),
 	m_bFileListTruncated(false),
+	m_nTextLength(-1),
 	m_crBg(RGB(255, 255, 255)),
 	m_crText(RGB(0, 0, 0)),
 	m_crHeaderText(RGB(64, 64, 64)),
@@ -141,6 +142,7 @@ void CPreviewPane::SetClip(int clipId)
 	m_nTotalSize = 0;
 	m_csTextPreview.Empty();
 	m_bTruncatedText = false;
+	m_nTextLength = -1;
 	m_fileNames.RemoveAll();
 	m_bFileListTruncated = false;
 	if (m_pBitmap)
@@ -240,6 +242,25 @@ void CPreviewPane::LoadTextPreview(int clipId)
 					pText[nChars] = 0;
 					m_csTextPreview = pText;
 					delete[] pText;
+
+					// count actual characters over the full blob, collapsing
+					// surrogate pairs so emoji count as one character
+					int nUnits = nLen / (int)sizeof(wchar_t);
+					const wchar_t* pAll = (const wchar_t*)pData;
+					int nCount = 0;
+					for (int i = 0; i < nUnits; i++)
+					{
+						if (pAll[i] == 0)
+						{
+							break; // null terminator
+						}
+						if (pAll[i] >= 0xD800 && pAll[i] <= 0xDBFF && i + 1 < nUnits)
+						{
+							i++; // skip the low half of a surrogate pair
+						}
+						nCount++;
+					}
+					m_nTextLength = nCount;
 				}
 				else
 				{
@@ -252,6 +273,13 @@ void CPreviewPane::LoadTextPreview(int clipId)
 						m_csTextPreview = pText;
 						delete[] pText;
 					}
+
+					int nCount = MultiByteToWideChar(CP_ACP, 0, (LPCSTR)pData, nLen, NULL, 0);
+					if (nCount > 0 && ((const char*)pData)[nLen - 1] == 0)
+					{
+						nCount--; // null terminator
+					}
+					m_nTextLength = nCount;
 				}
 			}
 		}
@@ -494,6 +522,12 @@ void CPreviewPane::UpdateContent()
 	else
 	{
 		csMeta.Format(_T("%s · %s"), csType, FormatByteSize(nDisplaySize));
+		if (m_nTextLength >= 0)
+		{
+			CString csChars;
+			csChars.Format(theApp.m_Language.GetString("PreviewCharCount", "%d 字符"), m_nTextLength);
+			csMeta += _T(" · ") + csChars;
+		}
 	}
 
 	CString cs = csMeta;
