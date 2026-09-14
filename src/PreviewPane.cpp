@@ -213,10 +213,13 @@ void CPreviewPane::LoadTextPreview(int clipId)
 {
 	try
 	{
+		// always prefer CF_UNICODETEXT: CF_TEXT is a lossy re-encode and its
+		// encoding is ambiguous (some apps hand us UTF-8 in CF_TEXT, so decoding
+		// it as CP_ACP produces mojibake for non-ASCII text)
 		CString csSQL;
 		csSQL.Format(_T("SELECT strClipBoardFormat, ooData FROM Data ")
 			_T("WHERE lParentID = %d AND (strClipBoardFormat = 'CF_UNICODETEXT' OR strClipBoardFormat = 'CF_TEXT') ")
-			_T("ORDER BY Data.lID desc LIMIT 1"), clipId);
+			_T("ORDER BY CASE WHEN strClipBoardFormat = 'CF_UNICODETEXT' THEN 0 ELSE 1 END, Data.lID desc LIMIT 1"), clipId);
 
 		CppSQLite3Query q = theApp.m_db.execQuery(csSQL);
 		if (q.eof() == false)
@@ -454,6 +457,34 @@ void CPreviewPane::UpdateContent()
 
 	// Alfred-style: one small gray summary line, then the actual content
 	CString csType = GetFriendlyTypeName();
+
+	// Show the size of the representative format, not the sum of all stored
+	// formats (a copied web link also carries an HTML blob, the plain text in
+	// two encodings, etc., so the total is misleading to the user)
+	__int64 nDisplaySize = m_nTotalSize;
+	{
+		const TCHAR* preferred[] = {
+			_T("CF_UNICODETEXT"), _T("CF_TEXT"), _T("Rich Text Format"),
+			_T("CF_DIB"), _T("CF_DIBV5"), _T("PNG"), _T("CF_BITMAP"),
+			_T("HTML Format")
+		};
+		for (int i = 0; i < _countof(preferred); i++)
+		{
+			for (const FormatInfo& fi : m_formats)
+			{
+				if (fi.m_csName.CompareNoCase(preferred[i]) == 0)
+				{
+					nDisplaySize = fi.m_nSize;
+					break;
+				}
+			}
+			if (nDisplaySize != m_nTotalSize)
+			{
+				break;
+			}
+		}
+	}
+
 	CString csMeta;
 	if (csType == theApp.m_Language.GetString("PreviewTypeFiles", "Files"))
 	{
@@ -462,7 +493,7 @@ void CPreviewPane::UpdateContent()
 	}
 	else
 	{
-		csMeta.Format(_T("%s · %s"), csType, FormatByteSize(m_nTotalSize));
+		csMeta.Format(_T("%s · %s"), csType, FormatByteSize(nDisplaySize));
 	}
 
 	CString cs = csMeta;
