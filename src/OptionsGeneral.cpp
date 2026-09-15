@@ -152,6 +152,9 @@ BOOL COptionsGeneral::OnInitDialog()
 	int prevPos = m_popupPositionCombo.AddString(theApp.m_Language.GetString("AtPreviousPosition", "At Previous Position"));
 	m_popupPositionCombo.SetItemData(prevPos, POS_AT_PREVIOUS);
 
+	int centerTopPos = m_popupPositionCombo.AddString(theApp.m_Language.GetString("AtScreenCenterTop", "Center of Screen (Top)"));
+	m_popupPositionCombo.SetItemData(centerTopPos, POS_AT_CENTER_TOP);
+
 	switch (CGetSetOptions::GetQuickPastePosition())
 	{
 	case POS_AT_CARET:
@@ -162,6 +165,9 @@ BOOL COptionsGeneral::OnInitDialog()
 		break;
 	case POS_AT_PREVIOUS:
 		m_popupPositionCombo.SetCurSel(prevPos);
+		break;
+	case POS_AT_CENTER_TOP:
+		m_popupPositionCombo.SetCurSel(centerTopPos);
 		break;
 	default:
 		m_popupPositionCombo.SetCurSel(cursorPos);

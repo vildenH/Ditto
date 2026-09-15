@@ -104,6 +104,7 @@ public:
 	int GetFirstTenNum( int index );
 
 	void SetNumberOfLinesPerRow(int nLines, bool force);
+
 	void GetSelectionIndexes(ARRAY &arr);
 	void GetSelectionItemData(ARRAY &arr);
 	void RefreshVisibleRows();
@@ -196,14 +197,14 @@ protected:
 	CGdiImageDrawer m_shortCutImage;
 	CGdiImageDrawer m_stickyImage;
 	int m_rowHeight;
-	CString m_searchText;
-	BOOL m_showIfClipWasPasted;
-	CAccels *m_pToolTipActions;
-	CRichEditCtrlEx m_rtfFormater;
-	CDPI *m_windowDpi;
+CString m_searchText;
+BOOL m_showIfClipWasPasted;
+CAccels *m_pToolTipActions;
+CRichEditCtrlEx m_rtfFormater;
+CDPI *m_windowDpi;
 
 
-	// Generated message map functions
+// Generated message map functions
 protected:
 	//{{AFX_MSG(CQListCtrl)
 	afx_msg void OnKeydown(NMHDR* pNMHDR, LRESULT* pResult);

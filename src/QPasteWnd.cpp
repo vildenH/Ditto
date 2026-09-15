@@ -90,7 +90,7 @@ CQPasteWnd::CQPasteWnd()
 	m_lastDbWrite = 0;
 	m_pendingRefresh = false;
 	m_lastNonActiveMouseMove = 0;
-	m_bAcrylicBackground = false;}
+}
 
 CQPasteWnd::~CQPasteWnd()
 {
@@ -548,32 +548,12 @@ int CQPasteWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	LoadShortcuts();
 
-	// Acrylic/frosted glass backdrop (Win10/11),
-	// disable via registry AcrylicBlurEnabled = 0
-	if (CGetSetOptions::GetAcrylicBlurEnabled())
-	{
-		ApplyAcrylicBackground();
-	}
+	// Windows 11 rounded corners (silently ignored on older systems)
+	Backdrop::ApplyRoundedCorners(m_hWnd);
 
 	InvalidateNc();
 
 	return 0;
-}
-
-void CQPasteWnd::ApplyAcrylicBackground()
-{
-	if (m_bAcrylicBackground || m_hWnd == NULL)
-	{
-		return;
-	}
-
-	if (Backdrop::EnableAcrylic(m_hWnd,
-		CGetSetOptions::m_Theme.MainWindowBG(),
-		(BYTE)CGetSetOptions::GetAcrylicTintAlpha()))
-	{
-		m_bAcrylicBackground = true;
-		Invalidate();
-	}
 }
 
 void CQPasteWnd::LoadShortcuts()
@@ -755,9 +735,11 @@ void CQPasteWnd::MoveControls()
 	int paneWidth = 0;
 	if (m_bShowPreviewPane && cx > m_DittoWindow.m_dpi.Scale(480))
 	{
-		// 0 = golden ratio (list 61.8% / pane 38.2%), 1 = half (50%/50%)
-		double dPaneRatio = CGetSetOptions::GetPreviewPaneRatio() == 1 ? 0.5 : 0.382;
-		paneWidth = (int)(cx * dPaneRatio);
+	// 0 = golden ratio (list 61.8% / pane 38.2%), 1 = half (50%/50%),
+	// 2 = dual card (list 2 / pane 1, matching 2:1.4 and 1:1.4 pane shapes)
+	int nPaneRatioMode = CGetSetOptions::GetPreviewPaneRatio();
+	double dPaneRatio = (nPaneRatioMode == 1) ? 0.5 : ((nPaneRatioMode == 2) ? (1.0 / 3.0) : 0.382);
+	paneWidth = (int)(cx * dPaneRatio);
 	}
 	int listWidth = max(1, cx - paneWidth);
 	// when the pane is visible it takes the LEFT side, the list starts after it
@@ -1049,7 +1031,14 @@ BOOL CQPasteWnd::HideQPasteWindow(bool releaseFocus, BOOL clearSearchData)
 
 void CQPasteWnd::SaveWindowSize()
 {
-	if (this->IsIconic() == FALSE)
+//When the layout is locked the saved position/size is fixed,
+//so window moves/resizes are not written back to the registry
+if (CGetSetOptions::GetLockWindowLayout())
+{
+return;
+}
+
+if (this->IsIconic() == FALSE)
 	{
 		CRect rect;
 		GetWindowRectEx(&rect);
@@ -6901,13 +6890,6 @@ BOOL CQPasteWnd::OnEraseBkgnd(CDC* pDC)
 	CRect rect;
 	GetClientRect(&rect);
 
-	// When acrylic is on, fill with an alpha-blended theme color
-	// so the blur behind shows through
-	if (Backdrop::FillGlassBackground(pDC->GetSafeHdc(), rect, CGetSetOptions::m_Theme.MainWindowBG()))
-	{
-		return TRUE;
-	}
-
 	CBrush myBrush(CGetSetOptions::m_Theme.MainWindowBG());    // dialog background color
 	CBrush* pOld = pDC->SelectObject(&myBrush);
 	BOOL bRes = pDC->PatBlt(0, 0, rect.Width(), rect.Height(), PATCOPY);
@@ -8305,14 +8287,6 @@ void CQPasteWnd::RefreshThemeColors()
 	
 	// Refresh scrollbar colors
 	RefreshScrollBarColors();
-
-	// Theme changed, update the glass tint color too
-	if (m_bAcrylicBackground)
-	{
-		Backdrop::EnableAcrylic(m_hWnd,
-			CGetSetOptions::m_Theme.MainWindowBG(),
-			(BYTE)CGetSetOptions::GetAcrylicTintAlpha());
-	}
 
 	// Refresh preview pane colors (description window colors from the theme)
 	if (::IsWindow(m_previewPane.GetSafeHwnd()))

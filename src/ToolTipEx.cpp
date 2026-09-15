@@ -22,10 +22,12 @@
 // CToolTipEx
 
 CToolTipEx::CToolTipEx(): m_dwTextStyle(DT_EXPANDTABS | DT_EXTERNALLEADING |
-                       DT_NOPREFIX | DT_WORDBREAK), m_rectMargin(2, 2, 3, 3),
-                        m_pNotifyWnd(NULL), m_clipId(0), m_clipRow(-1)
+DT_NOPREFIX | DT_WORDBREAK), m_rectMargin(2, 2, 3, 3),
+m_pNotifyWnd(NULL), m_clipId(0), m_clipRow(-1)
 {
-	m_showPersistant = false;
+m_bForcedRect = false;
+m_rcForced.SetRectEmpty();
+m_showPersistant = false;
 	m_pToolTipActions = NULL;
 	m_bMaxSetTimer = false;
 	m_lDelayMaxSeconds = 2;
@@ -160,7 +162,13 @@ BOOL CToolTipEx::Show(CPoint point)
 
 	CRect rect;
 
-	if(CGetSetOptions::GetSizeDescWindowToContent() == FALSE)
+	//Locked dual pane layout: use the exact rect set by the list window
+	//(desc pane docked left of the list, same top, half width)
+	if (m_bForcedRect)
+	{
+		rect = m_rcForced;
+	}
+	else if(CGetSetOptions::GetSizeDescWindowToContent() == FALSE)
 	{
 		rect.left = point.x;
 		rect.top = point.y;
@@ -370,7 +378,14 @@ void CToolTipEx::OnNcLButtonDblClk(UINT nHitTest, CPoint point)
 
 void CToolTipEx::SaveWindowSize()
 {
-	if (::IsWindowVisible(m_hWnd))
+//When the layout is locked the saved position/size is fixed,
+//so window moves/resizes are not written back to the registry
+if (CGetSetOptions::GetLockWindowLayout())
+{
+return;
+}
+
+if (::IsWindowVisible(m_hWnd))
 	{
 		CRect rect;
 

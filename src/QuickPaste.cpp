@@ -124,9 +124,12 @@ void CQuickPaste::ShowQPasteWnd(CWnd *pParent, bool bAtPrevPos, bool bFromKeyboa
 	m_pwndPaste->MinMaxWindow(FORCE_MAX);
 	
 	//If it is a window get the rect otherwise get the saved point and size
+	//For POS_AT_PREVIOUS always reload the saved size so the locked layout
+	//is not altered by the window's current (possibly dragged/resized) size
 	if (IsWindow(m_pwndPaste->m_hWnd) &&
 		m_pwndPaste->IsIconic() == FALSE &&
-		m_forceResizeOnNextShow == false)
+		m_forceResizeOnNextShow == false &&
+		nPosition != POS_AT_PREVIOUS)
 	{
 		m_pwndPaste->GetWindowRect(rcPrev);
 		csSize = rcPrev.Size();
@@ -197,9 +200,74 @@ void CQuickPaste::ShowQPasteWnd(CWnd *pParent, bool bAtPrevPos, bool bFromKeyboa
 		}
 	}
 	else if(nPosition == POS_AT_PREVIOUS)
+	{
 		CGetSetOptions::GetQuickPastePoint(point);
 
+		//Map the saved position onto the monitor the mouse is currently on,
+		//so the fixed layout follows the active monitor
+		CPoint ptMouse;
+		GetCursorPos(&ptMouse);
+
+		CPoint ptSaved = point;
+		CRect crSavedMonitor = MonitorRectFromRect(CRect(point, CSize(1, 1)));
+		CRect crMouseMonitor = MonitorRectFromRect(CRect(ptMouse, CSize(1, 1)));
+
+		point.x = crMouseMonitor.left + (point.x - crSavedMonitor.left);
+		point.y = crMouseMonitor.top + (point.y - crSavedMonitor.top);
+
+		//Locked layout: the window itself is the composite (desc pane + list are
+		//inside it), so if it does not fit on the target monitor scale it down
+		//proportionally to fit and center it
+		if (CGetSetOptions::GetLockWindowLayout() && IsWindow(m_pwndPaste->m_hWnd))
+		{
+			CRect crWork = MonitorRectFromRect(CRect(point, CSize(1, 1)));
+			int nMargin = m_pwndPaste->m_DittoWindow.m_dpi.Scale(40);
+
+			double dScaleX = (double)(crWork.Width() - 2 * nMargin) / (double)csSize.cx;
+			double dScaleY = (double)(crWork.Height() - 2 * nMargin) / (double)csSize.cy;
+			double dScale = (dScaleX < dScaleY) ? dScaleX : dScaleY;
+
+			if (dScale < 1.0)
+			{
+				csSize.cx = (long)(csSize.cx * dScale);
+				csSize.cy = (long)(csSize.cy * dScale);
+
+				point.x = crWork.left + (crWork.Width() - csSize.cx) / 2;
+				point.y = crWork.top + (crWork.Height() - csSize.cy) / 2;
+
+				Log(StrF(_T("POS_AT_PREVIOUS scaled to fit monitor: scale(%f) size(%d,%d) point(%d,%d)"),
+					dScale, csSize.cx, csSize.cy, point.x, point.y));
+			}
+		}
+
+		Log(StrF(_T("POS_AT_PREVIOUS diag: saved(%d,%d) savedMon(%d,%d,%d,%d) mouse(%d,%d) mouseMon(%d,%d,%d,%d) screenWH(%d,%d) mapped(%d,%d)"),
+			ptSaved.x, ptSaved.y,
+			crSavedMonitor.left, crSavedMonitor.top, crSavedMonitor.right, crSavedMonitor.bottom,
+			ptMouse.x, ptMouse.y,
+			crMouseMonitor.left, crMouseMonitor.top, crMouseMonitor.right, crMouseMonitor.bottom,
+			GetScreenWidth(), GetScreenHeight(),
+			point.x, point.y));
+	}
+	else if (nPosition == POS_AT_CENTER_TOP)
+	{
+		//Fixed position: centered on the monitor the mouse is on,
+		//window keeps the size the user saved
+		CPoint ptMouse;
+		GetCursorPos(&ptMouse);
+
+		CRect crMouse(ptMouse, CSize(1, 1));
+		CRect crMonitor = MonitorRectFromRect(crMouse);
+
+		point.x = crMonitor.left + (crMonitor.Width() - csSize.cx) / 2;
+		point.y = crMonitor.top + (crMonitor.Height() - csSize.cy) / 2;
+	}
+
 	CRect crRect = CRect(point, csSize);
+
+	Log(StrF(_T("ShowQPasteWnd diag: mode(%d) size(%d,%d) dpi(%d) crRect(%d,%d,%d,%d)"),
+		nPosition, csSize.cx, csSize.cy,
+		IsWindow(m_pwndPaste->m_hWnd) ? m_pwndPaste->m_DittoWindow.m_dpi.GetDPI() : 0,
+		crRect.left, crRect.top, crRect.right, crRect.bottom));
 
 	bool forceMoveWindow = m_forceResizeOnNextShow;
 
@@ -244,6 +312,8 @@ void CQuickPaste::ShowQPasteWnd(CWnd *pParent, bool bAtPrevPos, bool bFromKeyboa
 
 		if ((nPosition == POS_AT_CARET) ||
 			(nPosition == POS_AT_CURSOR) ||
+			(nPosition == POS_AT_CENTER_TOP) ||
+			(nPosition == POS_AT_PREVIOUS) ||
 			bAtPrevPos ||
 			forceMoveWindow)
 		{
@@ -265,6 +335,8 @@ void CQuickPaste::ShowQPasteWnd(CWnd *pParent, bool bAtPrevPos, bool bFromKeyboa
 	{
 		if ((nPosition == POS_AT_CARET) ||
 			(nPosition == POS_AT_CURSOR) ||
+			(nPosition == POS_AT_CENTER_TOP) ||
+			(nPosition == POS_AT_PREVIOUS) ||
 			bAtPrevPos ||
 			forceMoveWindow)
 		{

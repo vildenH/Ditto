@@ -955,26 +955,6 @@ void CGetSetOptions::SetPreviewPaneRatio(int nRatio)
 	SetProfileLong(_T("PreviewPaneRatio"), nRatio);
 }
 
-BOOL CGetSetOptions::GetAcrylicBlurEnabled()
-{
-	return GetProfileLong(_T("AcrylicBlurEnabled"), TRUE);
-}
-
-void CGetSetOptions::SetAcrylicBlurEnabled(BOOL bEnable)
-{
-	SetProfileLong(_T("AcrylicBlurEnabled"), bEnable);
-}
-
-int CGetSetOptions::GetAcrylicTintAlpha()
-{
-	return (int)GetProfileLong(_T("AcrylicTintAlpha"), 170);
-}
-
-void CGetSetOptions::SetAcrylicTintAlpha(int nAlpha)
-{
-	SetProfileLong(_T("AcrylicTintAlpha"), nAlpha);
-}
-
 CString CGetSetOptions::GetExeFileName()
 {
 	CString sExeName;
@@ -2370,7 +2350,16 @@ void CGetSetOptions::SetRememberDescPos(BOOL val)
 }
 BOOL CGetSetOptions::GetRememberDescPos()
 {
-	return GetProfileLong(_T("RememberDescPos"), FALSE);
+return GetProfileLong(_T("RememberDescPos"), FALSE);
+}
+
+void CGetSetOptions::SetLockWindowLayout(BOOL val)
+{
+SetProfileLong(_T("LockWindowLayout"), val);
+}
+BOOL CGetSetOptions::GetLockWindowLayout()
+{
+return GetProfileLong(_T("LockWindowLayout"), FALSE);
 }
 
 void CGetSetOptions::SetSizeDescWindowToContent(BOOL val)

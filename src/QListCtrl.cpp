@@ -209,10 +209,10 @@ CQListCtrl::CQListCtrl()
 	m_pToolTip = NULL;
 	m_pFormatter = NULL;
 	m_allSelected = false;
-	m_rowHeight = 50;
-	m_mouseOverScrollAreaStart = 0;
-	m_showIfClipWasPasted = TRUE;
-	m_bShowTextForFirstTenHotKeys = true;
+m_rowHeight = 50;
+m_mouseOverScrollAreaStart = 0;
+m_showIfClipWasPasted = TRUE;
+m_bShowTextForFirstTenHotKeys = true;
 	m_pToolTipActions = NULL;
 }
 
@@ -1218,13 +1218,6 @@ BOOL CQListCtrl::OnEraseBkgnd(CDC* pDC)
 	CRect rect;
 	GetClientRect(&rect);
 
-	// When acrylic is on, fill with an alpha-blended theme color
-	// so the blur behind shows through
-	if (Backdrop::FillGlassBackground(pDC->GetSafeHdc(), rect, CGetSetOptions::m_Theme.MainWindowBG()))
-	{
-		return TRUE;
-	}
-
 	CBrush myBrush(CGetSetOptions::m_Theme.MainWindowBG());    // dialog background color
 	CBrush* pOld = pDC->SelectObject(&myBrush);
 	BOOL bRes = pDC->PatBlt(0, 0, rect.Width(), rect.Height(), PATCOPY);
@@ -1559,6 +1552,14 @@ bool CQListCtrl::ShowFullDescription(bool bFromAuto, bool fromNextPrev)
 	if (CGetSetOptions::GetRememberDescPos())
 	{
 		CGetSetOptions::GetDescWndPoint(pt);
+
+		//Map the saved position onto the monitor the list window is on,
+		//so the desc pane follows the list on the active monitor
+		CRect crSavedMonitor = MonitorRectFromRect(CRect(pt, CSize(1, 1)));
+		CRect crListMonitor = MonitorRectFromRect(crWindow);
+
+		pt.x = crListMonitor.left + (pt.x - crSavedMonitor.left);
+		pt.y = crListMonitor.top + (pt.y - crSavedMonitor.top);
 	}
 	else if (bFromAuto == false)
 	{
@@ -1753,8 +1754,15 @@ bool CQListCtrl::ShowFullDescription(bool bFromAuto, bool fromNextPrev)
 			}
 		}
 
-		m_pToolTip->Show(pt);
+	//The locked dual pane layout is handled by the main window's internal
+	//preview pane, the hover tooltip keeps its native behavior
+	if (m_pToolTip != NULL)
+	{
+		m_pToolTip->ClearForcedRect();
 	}
+
+	m_pToolTip->Show(pt);
+}
 
 	return true;
 }

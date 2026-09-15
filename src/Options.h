@@ -42,6 +42,7 @@ public:
 #define POS_AT_CARET	1
 #define POS_AT_CURSOR	2
 #define POS_AT_PREVIOUS	3
+#define POS_AT_CENTER_TOP	4
 
 #define CAPTION_RIGHT	1
 #define CAPTION_BOTTOM	2
@@ -89,14 +90,6 @@ public:
 
 	static BOOL GetShowPreviewPane();
 	static void SetShowPreviewPane(BOOL bShow);
-
-	// Acrylic/frosted glass backdrop (Win10/11), on by default,
-	// disable via registry Software\Ditto\AcrylicBlurEnabled = 0
-	static BOOL GetAcrylicBlurEnabled();
-	static void SetAcrylicBlurEnabled(BOOL bEnable);
-	// Glass tint opacity 0-255, higher = more opaque
-	static int GetAcrylicTintAlpha();
-	static void SetAcrylicTintAlpha(int nAlpha);
 
 	// 0 = golden ratio (38.2%), 1 = half (50%)
 	static int GetPreviewPaneRatio();
@@ -486,8 +479,11 @@ public:
 	static void		SetPasteAsAdmin(BOOL val);
 	static BOOL		GetPasteAsAdmin();
 
-	static void		SetRememberDescPos(BOOL val);
-	static BOOL		GetRememberDescPos();
+static void		SetRememberDescPos(BOOL val);
+static BOOL		GetRememberDescPos();
+
+static void		SetLockWindowLayout(BOOL val);
+static BOOL		GetLockWindowLayout();
 
 	static void		SetSizeDescWindowToContent(BOOL val);
 	static BOOL		GetSizeDescWindowToContent();

@@ -14,7 +14,11 @@ class CToolTipEx : public CWnd
 {
 // Construction
 public:
-	CToolTipEx();
+CToolTipEx();
+
+// Forced rect support for the locked dual pane layout
+void SetForcedRect(CRect rc) { m_bForcedRect = true; m_rcForced = rc; }
+void ClearForcedRect() { m_bForcedRect = false; }
 
 // Attributes
 public:
@@ -95,6 +99,8 @@ protected:
 	CString m_originalClipData;
 	CFont m_clipDataFont;
 	bool m_saveWindowLockout;
+bool m_bForcedRect;
+CRect m_rcForced;
 	int m_clipRow;
 	bool m_showPersistant;
 	CAccels *m_pToolTipActions;
