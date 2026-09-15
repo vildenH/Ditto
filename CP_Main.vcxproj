@@ -607,6 +607,7 @@
     <ClCompile Include="src\MainTableFunctions.cpp" />
     <ClCompile Include="src\Md5.cpp" />
     <ClCompile Include="src\MessagePumpThread.cpp" />
+    <ClCompile Include="src\Backdrop.cpp" />
     <ClCompile Include="src\Misc.cpp" />
     <ClCompile Include="src\ModernScrollBar.cpp" />
     <ClCompile Include="src\MoveToGroupDlg.cpp" />
@@ -877,6 +878,7 @@
     <ClInclude Include="src\Md5.h" />
     <ClInclude Include="src\memdc.h" />
     <ClInclude Include="src\MessagePumpThread.h" />
+    <ClInclude Include="src\Backdrop.h" />
     <ClInclude Include="src\Misc.h" />
     <ClInclude Include="src\ModernScrollBar.h" />
     <ClInclude Include="src\MoveToGroupDlg.h" />

@@ -90,6 +90,14 @@ public:
 	static BOOL GetShowPreviewPane();
 	static void SetShowPreviewPane(BOOL bShow);
 
+	// Acrylic/frosted glass backdrop (Win10/11), on by default,
+	// disable via registry Software\Ditto\AcrylicBlurEnabled = 0
+	static BOOL GetAcrylicBlurEnabled();
+	static void SetAcrylicBlurEnabled(BOOL bEnable);
+	// Glass tint opacity 0-255, higher = more opaque
+	static int GetAcrylicTintAlpha();
+	static void SetAcrylicTintAlpha(int nAlpha);
+
 	// 0 = golden ratio (38.2%), 1 = half (50%)
 	static int GetPreviewPaneRatio();
 	static void SetPreviewPaneRatio(int nRatio);

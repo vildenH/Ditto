@@ -123,9 +123,13 @@ public:
     // Implementation
 public:
     bool Add(const CString &csHeader, const CString &csText, int nID);
-    virtual ~CQPasteWnd();
+	virtual ~CQPasteWnd();
 
     void UpdateFont();
+
+	// Enable acrylic/frosted glass backdrop (Win10/11),
+	// silently returns when already enabled or unsupported
+	void ApplyAcrylicBackground();
 
     //protected:
     CQListCtrl m_lstHeader;
@@ -175,6 +179,7 @@ public:
 	CCustomFriendsHelper m_customFriendsHelper;
 	bool m_noSearchResults;
 	bool m_bShowStarredClips;
+	bool m_bAcrylicBackground;   // whether the acrylic backdrop is active
 	bool m_bShowPreviewPane;
 	CPreviewPane m_previewPane;
 	CAccel m_timerAction;

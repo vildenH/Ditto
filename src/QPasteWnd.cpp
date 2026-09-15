@@ -29,6 +29,7 @@
 #include <signal.h>
 #include "CreateQRCodeImage.h"
 #include "QRCodeViewer.h"
+#include "Backdrop.h" // acrylic/frosted glass backdrop
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -89,7 +90,7 @@ CQPasteWnd::CQPasteWnd()
 	m_lastDbWrite = 0;
 	m_pendingRefresh = false;
 	m_lastNonActiveMouseMove = 0;
-}
+	m_bAcrylicBackground = false;}
 
 CQPasteWnd::~CQPasteWnd()
 {
@@ -547,9 +548,32 @@ int CQPasteWnd::OnCreate(LPCREATESTRUCT lpCreateStruct)
 
 	LoadShortcuts();
 
+	// Acrylic/frosted glass backdrop (Win10/11),
+	// disable via registry AcrylicBlurEnabled = 0
+	if (CGetSetOptions::GetAcrylicBlurEnabled())
+	{
+		ApplyAcrylicBackground();
+	}
+
 	InvalidateNc();
 
 	return 0;
+}
+
+void CQPasteWnd::ApplyAcrylicBackground()
+{
+	if (m_bAcrylicBackground || m_hWnd == NULL)
+	{
+		return;
+	}
+
+	if (Backdrop::EnableAcrylic(m_hWnd,
+		CGetSetOptions::m_Theme.MainWindowBG(),
+		(BYTE)CGetSetOptions::GetAcrylicTintAlpha()))
+	{
+		m_bAcrylicBackground = true;
+		Invalidate();
+	}
 }
 
 void CQPasteWnd::LoadShortcuts()
@@ -6876,6 +6900,14 @@ BOOL CQPasteWnd::OnEraseBkgnd(CDC* pDC)
 {
 	CRect rect;
 	GetClientRect(&rect);
+
+	// When acrylic is on, fill with an alpha-blended theme color
+	// so the blur behind shows through
+	if (Backdrop::FillGlassBackground(pDC->GetSafeHdc(), rect, CGetSetOptions::m_Theme.MainWindowBG()))
+	{
+		return TRUE;
+	}
+
 	CBrush myBrush(CGetSetOptions::m_Theme.MainWindowBG());    // dialog background color
 	CBrush* pOld = pDC->SelectObject(&myBrush);
 	BOOL bRes = pDC->PatBlt(0, 0, rect.Width(), rect.Height(), PATCOPY);
@@ -8273,6 +8305,14 @@ void CQPasteWnd::RefreshThemeColors()
 	
 	// Refresh scrollbar colors
 	RefreshScrollBarColors();
+
+	// Theme changed, update the glass tint color too
+	if (m_bAcrylicBackground)
+	{
+		Backdrop::EnableAcrylic(m_hWnd,
+			CGetSetOptions::m_Theme.MainWindowBG(),
+			(BYTE)CGetSetOptions::GetAcrylicTintAlpha());
+	}
 
 	// Refresh preview pane colors (description window colors from the theme)
 	if (::IsWindow(m_previewPane.GetSafeHwnd()))

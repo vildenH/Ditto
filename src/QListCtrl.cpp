@@ -17,6 +17,7 @@
 #include <cwchar>   // For swscanf
 #include <algorithm> // For std::round
 #include <gdiplus.h>
+#include "Backdrop.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -1216,6 +1217,14 @@ BOOL CQListCtrl::OnEraseBkgnd(CDC* pDC)
 
 	CRect rect;
 	GetClientRect(&rect);
+
+	// When acrylic is on, fill with an alpha-blended theme color
+	// so the blur behind shows through
+	if (Backdrop::FillGlassBackground(pDC->GetSafeHdc(), rect, CGetSetOptions::m_Theme.MainWindowBG()))
+	{
+		return TRUE;
+	}
+
 	CBrush myBrush(CGetSetOptions::m_Theme.MainWindowBG());    // dialog background color
 	CBrush* pOld = pDC->SelectObject(&myBrush);
 	BOOL bRes = pDC->PatBlt(0, 0, rect.Width(), rect.Height(), PATCOPY);

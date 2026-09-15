@@ -955,6 +955,26 @@ void CGetSetOptions::SetPreviewPaneRatio(int nRatio)
 	SetProfileLong(_T("PreviewPaneRatio"), nRatio);
 }
 
+BOOL CGetSetOptions::GetAcrylicBlurEnabled()
+{
+	return GetProfileLong(_T("AcrylicBlurEnabled"), TRUE);
+}
+
+void CGetSetOptions::SetAcrylicBlurEnabled(BOOL bEnable)
+{
+	SetProfileLong(_T("AcrylicBlurEnabled"), bEnable);
+}
+
+int CGetSetOptions::GetAcrylicTintAlpha()
+{
+	return (int)GetProfileLong(_T("AcrylicTintAlpha"), 170);
+}
+
+void CGetSetOptions::SetAcrylicTintAlpha(int nAlpha)
+{
+	SetProfileLong(_T("AcrylicTintAlpha"), nAlpha);
+}
+
 CString CGetSetOptions::GetExeFileName()
 {
 	CString sExeName;
